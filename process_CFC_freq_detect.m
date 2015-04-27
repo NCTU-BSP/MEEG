@@ -96,7 +96,7 @@ function sProcess = GetDescription() %#ok<DEFNU>
     % === FREQ 
     sProcess.options.nestingwidth.Comment = 'Nesting frequency step (low):';
     sProcess.options.nestingwidth.Type    = 'value';
-    sProcess.options.nestingwidth.Value   = {0.75, 'Hz', 2};   
+    sProcess.options.nestingwidth.Value   = {1, 'Hz', 2};   
     % === NESTED FREQ
     sProcess.options.nested.Comment = 'Nested frequency band (high):';
     sProcess.options.nested.Type    = 'range';
@@ -104,7 +104,7 @@ function sProcess = GetDescription() %#ok<DEFNU>
     % === FREQ 
     sProcess.options.nestedwidth.Comment = 'Nested frequency step (high):';
     sProcess.options.nestedwidth.Type    = 'value';
-    sProcess.options.nestedwidth.Value   = {0.75, 'Hz', 2};   
+    sProcess.options.nestedwidth.Value   = {10, 'Hz', 2};   
 %     % === TF METHOD  ===
 %     sProcess.options.tfmethod.Comment    = {'Hilbert', 'Wavelet', 'STFT', 'TF method:'};
 %     sProcess.options.tfmethod.Type       = 'radio_line';
@@ -487,9 +487,9 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
             Comment = [Comment 'Lagged'];
         end
         if OPTIONS.isSaveMax
-            Comment = [Comment 'Max' upper(OPTIONS.PACmeasure) '(' upper(OPTIONS.TFmethod) ')'];
+            Comment = [Comment 'Max' upper(OPTIONS.PACmeasure) ];
         else
-            Comment = [Comment upper(OPTIONS.PACmeasure) '(' upper(OPTIONS.TFmethod) ')'];           
+            Comment = [Comment upper(OPTIONS.PACmeasure) ];           
         end
 
         % Time window (RAW only)
