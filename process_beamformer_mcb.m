@@ -1,4 +1,4 @@
-function varargout = process_beamformer_mcb_20150125( varargin )
+function varargout = process_beamformer_mcb( varargin )
 % PROCESS_BEAMFORMER_MCB: 
 % USAGE:  sInput = process_beamformer_mcb_20150125('GetDescription')                      
 %         sOutput = process_beamformer_mcb_20150125('Run', sProcess, sInput, method=[])
@@ -40,7 +40,7 @@ end
 %% ===== GET DESCRIPTION =====
 function sProcess = GetDescription() %#ok<DEFNU>
     % Description the process
-    sProcess.Comment     = 'Beamformer: Maximum Contrast (20150125) [Experimental]';
+    sProcess.Comment     = 'Beamformer: Maximum Contrast';
     sProcess.FileTag     = '';
     sProcess.Category    = 'Custom';
     sProcess.SubGroup    = 'Sources';

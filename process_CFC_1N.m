@@ -1,4 +1,4 @@
-function varargout = process_pac1N( varargin )
+function varargout = process_CFC_1N( varargin )
 % PROCESS_BEAMFORMER_TEST: 
 
 % @=============================================================================
@@ -28,7 +28,7 @@ end
 %% ===== GET DESCRIPTION =====
 function sProcess = GetDescription() %#ok<DEFNU>
     % Description the process
-    sProcess.Comment     = 'Phase-amplitude coupling 1xN - Onslow';
+    sProcess.Comment     = 'Seed-based cross-frequency coupling (1xN)';
     sProcess.FileTag     = '';
     sProcess.Category    = 'Custom';
     sProcess.SubGroup    = 'Connectivity';
@@ -69,22 +69,22 @@ function sProcess = GetDescription() %#ok<DEFNU>
     sProcess.options.label_pac.Comment = '<HTML><BR><B><U>Estimator options</U></B>:';
     sProcess.options.label_pac.Type    = 'label';
     % === PAC MEASURE ===
-    sProcess.options.pacmeasure.Comment    = {'ESC', 'MI', 'CFC', 'Pac measure:'};
+    sProcess.options.pacmeasure.Comment    = {'AEC', 'ESC', 'EPC', 'MI', 'CFC measure:'};
     sProcess.options.pacmeasure.Type       = 'radio_line';
     sProcess.options.pacmeasure.Value      = 1;
-    % === TF METHOD  ===
-    sProcess.options.tfmethod.Comment    = {'Hilbert', 'Wavelet', 'STFT', 'TF method:'};
-    sProcess.options.tfmethod.Type       = 'radio_line';
-    sProcess.options.tfmethod.Value      = 1;
+%     % === TF METHOD  ===
+%     sProcess.options.tfmethod.Comment    = {'Hilbert', 'Wavelet', 'STFT', 'TF method:'};
+%     sProcess.options.tfmethod.Type       = 'radio_line';
+%     sProcess.options.tfmethod.Value      = 1;
     % === WINDOW LENGTH
 %     sProcess.options.winlength.Comment = 'Estimator window length: ';
 %     sProcess.options.winlength.Type    = 'value';
 %     sProcess.options.winlength.Value   = {0.128, 'ms ', 1};
 %     sProcess.options.winlength.InputTypes = {'data'};
-    % === Overlap
-    sProcess.options.winoverlap.Comment = 'Overlap percentage: ';
-    sProcess.options.winoverlap.Type    = 'value';
-    sProcess.options.winoverlap.Value   = {0.75, '% ', 1};
+%     % === Overlap
+%     sProcess.options.winoverlap.Comment = 'Overlap percentage: ';
+%     sProcess.options.winoverlap.Type    = 'value';
+%     sProcess.options.winoverlap.Value   = {0.75, '% ', 1};
 %     sProcess.options.winoverlap.InputTypes = {'data'};
     % Options: Time-freq
     % === NESTING FREQ
@@ -99,10 +99,10 @@ function sProcess = GetDescription() %#ok<DEFNU>
     sProcess.options.nested.Comment = 'Nested frequency band (high):';
     sProcess.options.nested.Type    = 'range';
     sProcess.options.nested.Value   = {[40, 150], 'Hz', 2};
-    % === FREQ 
-    sProcess.options.width.Comment = 'Cycles of wavelet:';
-    sProcess.options.width.Type    = 'value';
-    sProcess.options.width.Value   = {7, 'Cycles', 0};   
+%     % === FREQ 
+%     sProcess.options.width.Comment = 'Cycles of wavelet:';
+%     sProcess.options.width.Type    = 'value';
+%     sProcess.options.width.Value   = {7, 'Cycles', 0};   
     % === Freq band
     sProcess.options.freqband.Comment = 'Frequency band of interested:';
     sProcess.options.freqband.Type    = 'text';
@@ -215,7 +215,7 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
     % Initialize returned list of files
     OutputFiles = {};
     OPTIONS.isSymmetric   = 0;
-    OPTIONS.ProcessName   = 'PAC';
+    OPTIONS.ProcessName   = 'CFC1N';
     % ===== GET OPTIONS =====
     if isfield(sProcess.options, 'timewindow') && isfield(sProcess.options.timewindow, 'Value') && iscell(sProcess.options.timewindow.Value) && ~isempty(sProcess.options.timewindow.Value)
         OPTIONS.TimeWindow = sProcess.options.timewindow.Value{1};
@@ -225,7 +225,7 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
     % Get and check frequencies
     OPTIONS.BandNesting = sProcess.options.nesting.Value{1};
     OPTIONS.BandNested  = sProcess.options.nested.Value{1};
-    OPTIONS.Width = sProcess.options.width.Value{1};
+    OPTIONS.Width = 0;%sProcess.options.width.Value{1};
     
     if (min(OPTIONS.BandNesting) < 0.5)
         bst_report('Error', sProcess, [], 'This function cannot be used to estimate PAC for nesting frequencies below 1Hz.');
@@ -254,10 +254,12 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
     end 
     OPTIONS.isTimeLag  = sProcess.options.tlag.Value;
     switch (sProcess.options.pacmeasure.Value)
-        case 1, OPTIONS.Method = 'esc';
-        case 2, OPTIONS.Method = 'mi';
-        case 3, OPTIONS.Method = 'cfc';
+        case 1, OPTIONS.Method = 'aec';
+        case 2, OPTIONS.Method = 'esc';
+        case 3, OPTIONS.Method = 'epc';
+        case 4, OPTIONS.Method = 'mi';
     end
+    sProcess.options.tfmethod.Value = 1;
     switch (sProcess.options.tfmethod.Value)
         case 1, OPTIONS.TFmethod = 'hilbert';
         case 2, OPTIONS.TFmethod = 'wavelet';
@@ -270,7 +272,7 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
     end
     
     if strcmpi(measure,'cfc')
-        SegmentOverlap = sProcess.options.winoverlap.Value{1}/100;
+        SegmentOverlap = 0.5;%sProcess.options.winoverlap.Value{1}/100;
         %SegmentLength = sProcess.options.winlength.Value{1};
     end
     
@@ -339,7 +341,7 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
         DirectPAC = [];
         
         % ===== LOAD SIGNALS =====
-        bst_progress('text', sprintf('PAC: Loading input file (%d/%d)...', iFile, length(sInputA)));
+        bst_progress('text', sprintf('CFC1N: Loading input file (%d/%d)...', iFile, length(sInputA)));
         
         % Load input signals 
         [sInputRef, nSignalsRef, iRowsRef] = bst_process('LoadInputFile', sInputA(iFile).FileName, OPTIONS.Target, OPTIONS.TimeWindow, LoadOptions);
@@ -358,13 +360,13 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
             % Warning
             strMsg = sprintf('Higher nesting frequency is too high (%d Hz) compared with sampling frequency (%d Hz): Limiting to %d Hz', round(OPTIONS.BandNested(2)), round(sRate), round(sRate/3));
             disp([10 'process_pac> ' strMsg]);
-            bst_report('Warning', 'process_pac', [], strMsg);
+            bst_report('Warning', 'process_CFC_1N', [], strMsg);
             % Fix higher frequencyy
             OPTIONS.BandNested(2) = sRate/3;
         end
         % Check the extent of bandNested band
         if (OPTIONS.BandNested(2) <= OPTIONS.BandNested(1))
-            bst_report('Error', 'process_pac', [], sprintf('Invalid frequency range: %d-%d Hz', round(OPTIONS.BandNested(1)), round(OPTIONS.BandNested(2))),'n');
+            bst_report('Error', 'process_CFC_1N', [], sprintf('Invalid frequency range: %d-%d Hz', round(OPTIONS.BandNested(1)), round(OPTIONS.BandNested(2))),'n');
             continue;
         end
         
@@ -385,7 +387,7 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
         if strcmpi(sInput.DataType, 'results')
             nComponents = sInput.nComponents;           
             if nComponents == 0
-                error('PAC metrics are not supported for mixed source models.');
+                error('CFC metrics are not supported for mixed source models.');
             end
             nRef = nSignalsRef/nComponents;
         end
@@ -407,8 +409,10 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
                 
                 if strcmp(measure, 'esc')
                     sigYmat = bp_vec(Fblock,BandBounds,sRate,OPTIONS.Width,OPTIONS.TFmethod);
-                elseif strcmp(measure, 'mi')
+                elseif strcmp(measure, 'mi') || strcmp(measure, 'epc')
                     sigYmat = ph_vec(Fblock,BandBounds,sRate,OPTIONS.Width,OPTIONS.TFmethod);
+                elseif strcmp(measure, 'aec')
+                    sigYmat = amp_vec(Fblock,BandBounds,sRate,OPTIONS.Width,OPTIONS.TFmethod);    
                 end
 
 
@@ -421,7 +425,7 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
                     
                     %pacmat = zeros(nComponents,nComponents);
                     
-                    if strcmp(measure, 'esc')
+                    if strcmp(measure, 'esc') || strcmp(measure, 'esp') || strcmp(measure, 'aec')
                         %sigY = bp_vec(Fblock(iSigY+(0:nComponents-1),:),BandBounds,sRate,OPTIONS.Width,OPTIONS.TFmethod);
                         %sigY = bpvec(sum(BandBounds)/2,Fblock(iSigY+(0:nComponents-1),:),sRate,BandBounds(2)-BandBounds(1));
                         %OPTIONS.RemoveMean = 1;
@@ -481,9 +485,9 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
         end
         % Base comment
         if  OPTIONS.isTimeLag
-            Comment = [ result_comment 'Lagged' upper(measure) '(' upper(OPTIONS.TFmethod)  ',1xN)'];
+            Comment = [ result_comment 'Lagged' upper(measure) '(1xN)'];
         else
-            Comment = [ result_comment upper(measure) '(' upper(OPTIONS.TFmethod)  ',1xN)'];
+            Comment = [ result_comment upper(measure) '(1xN)'];
         end
 
         
