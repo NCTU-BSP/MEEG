@@ -82,7 +82,7 @@ function sProcess = GetDescription() %#ok<DEFNU>
     sProcess.options.label_pac.Comment = '<HTML><BR><B><U>Estimator options</U></B>:';
     sProcess.options.label_pac.Type    = 'label';
     % === PAC MEASURES ===
-    sProcess.options.pacmeasure.Comment    = {'AEC', 'ESC', 'ESP', 'MI', 'CFC measure:'};
+    sProcess.options.pacmeasure.Comment    = {'AEC', 'ESC', 'EPC', 'MI', 'CFC measure:'};
     sProcess.options.pacmeasure.Type       = 'radio_line';
     sProcess.options.pacmeasure.Value      = 1;
     % === TIME LAGGED
@@ -227,7 +227,7 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
     switch (sProcess.options.pacmeasure.Value)
         case 1, OPTIONS.PACmeasure = 'aec';
         case 2, OPTIONS.PACmeasure = 'esc';
-        case 3, OPTIONS.PACmeasure = 'esp';
+        case 3, OPTIONS.PACmeasure = 'epc';
         case 4, OPTIONS.PACmeasure = 'mi';
     end
     sProcess.options.tfmethod.Value = 1;
@@ -665,7 +665,7 @@ counter = 0;
 maxlag = 0;
 countermax = xbins*ybins;
 %fprintf('\nCalculating CFC values\n');
-if (strcmp(measure, 'esc') || strcmp(measure, 'mi') || strcmp(measure, 'esp') || strcmp(measure, 'aec') )
+if (strcmp(measure, 'esc') || strcmp(measure, 'mi') || strcmp(measure, 'epc') || strcmp(measure, 'aec') )
     pacmat = zeros(ybins,xbins);
     for x=1:xbins
 
@@ -702,7 +702,7 @@ if (strcmp(measure, 'esc') || strcmp(measure, 'mi') || strcmp(measure, 'esp') ||
                     amp_filt_signals(:,i3) = amp_vec(sig_pac(:,i3)', BandBoundsY, Fs, width, TFmethod)';
                 end
                 
-                if strcmp(measure, 'esc') || strcmp(measure, 'esp')
+                if strcmp(measure, 'esc') || strcmp(measure, 'epc')
                     
                     if isTLag == 1                        
                         maxlag = min(floor(Fs/freqvec_ph(x)/2),floor(total_num_dp*0.8)/4);
