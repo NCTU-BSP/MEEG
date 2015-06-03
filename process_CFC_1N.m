@@ -69,7 +69,7 @@ function sProcess = GetDescription() %#ok<DEFNU>
     sProcess.options.label_pac.Comment = '<HTML><BR><B><U>Estimator options</U></B>:';
     sProcess.options.label_pac.Type    = 'label';
     % === PAC MEASURE ===
-    sProcess.options.pacmeasure.Comment    = {'AEC', 'ESC', 'EPC', 'MI', 'CFC measure:'};
+    sProcess.options.pacmeasure.Comment    = {'AEC', 'ESC', 'MI', 'CFC measure:'};
     sProcess.options.pacmeasure.Type       = 'radio_line';
     sProcess.options.pacmeasure.Value      = 1;
 %     % === TF METHOD  ===
@@ -113,10 +113,15 @@ function sProcess = GetDescription() %#ok<DEFNU>
     sProcess.options.tlag.Type    = 'checkbox';
     sProcess.options.tlag.Value   = 1;
     sProcess = DefineConnectOptions(sProcess, 0);
+
     
     % ==== OUTPUT ====
     sProcess.options.label_out.Comment = '<HTML><BR><U><B>Output configuration</B></U>:';
     sProcess.options.label_out.Type    = 'label';
+    % === OUTPUT TYPE  ===
+    sProcess.options.outtype.Comment    = {'ROI-to-ROI', 'ROI-to-whole-brain', 'Output:'};
+    sProcess.options.outtype.Type       = 'radio_line';
+    sProcess.options.outtype.Value      = 1;
     % === AVERAGE OUTPUT FILES
     sProcess.options.avgoutput.Comment = 'Save average PAC across trials (one output file only)';
     sProcess.options.avgoutput.Type    = 'checkbox';
@@ -127,7 +132,7 @@ function sProcess = GetDescription() %#ok<DEFNU>
 end
 
 %% ===== DEFINE SCOUT OPTIONS =====
-function sProcess = DefineConnectOptions(sProcess, isConnNN) %#ok<DEFNU>
+function sProcess = DefineConnectOptions(sProcess, isConnectNN) %#ok<DEFNU>
     % === TIME WINDOW ===
     sProcess.options.label1.Comment = '<HTML><B><U>Input options</U></B>:';
     sProcess.options.label1.Type    = 'label';
@@ -135,9 +140,9 @@ function sProcess = DefineConnectOptions(sProcess, isConnNN) %#ok<DEFNU>
     sProcess.options.timewindow.Type    = 'timewindow';
     sProcess.options.timewindow.Value   = [];
     % === FROM: CONNECTIVITY [1xN] ===
-    if ~isConnNN
+    if ~isConnectNN
         % === FROM: REFERENCE CHANNELS ===
-        sProcess.options.src_channel.Comment    = 'Source channel: ';
+        sProcess.options.src_channel.Comment    = 'Seed channel (Containing nested-freq oscillations): ';
         sProcess.options.src_channel.Type       = 'channelname';
         sProcess.options.src_channel.Value      = 'name';
         sProcess.options.src_channel.InputTypes = {'data','raw'};
@@ -154,7 +159,7 @@ function sProcess = DefineConnectOptions(sProcess, isConnNN) %#ok<DEFNU>
     sProcess.options.dest_sensors.InputTypes = {'data','raw'};
     % === SCOUTS ===
     sProcess.options.scouts.Comment = 'Use scouts';
-    if isConnNN
+    if isConnectNN
         sProcess.options.scouts.Type = 'scout_confirm';
     else
         sProcess.options.scouts.Type = 'scout';
@@ -215,7 +220,7 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
     % Initialize returned list of files
     OutputFiles = {};
     OPTIONS.isSymmetric   = 0;
-    OPTIONS.ProcessName   = 'CFC1N';
+    
     % ===== GET OPTIONS =====
     if isfield(sProcess.options, 'timewindow') && isfield(sProcess.options.timewindow, 'Value') && iscell(sProcess.options.timewindow.Value) && ~isempty(sProcess.options.timewindow.Value)
         OPTIONS.TimeWindow = sProcess.options.timewindow.Value{1};
@@ -256,14 +261,23 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
     switch (sProcess.options.pacmeasure.Value)
         case 1, OPTIONS.Method = 'aec';
         case 2, OPTIONS.Method = 'esc';
-        case 3, OPTIONS.Method = 'epc';
-        case 4, OPTIONS.Method = 'mi';
+        case 3, OPTIONS.Method = 'mi';
+        %case 4, OPTIONS.Method = 'mi';
     end
     sProcess.options.tfmethod.Value = 1;
     switch (sProcess.options.tfmethod.Value)
         case 1, OPTIONS.TFmethod = 'hilbert';
         case 2, OPTIONS.TFmethod = 'wavelet';
         case 3, OPTIONS.TFmethod = 'stft';
+    end
+    switch (sProcess.options.outtype.Value)
+        case 1, isConnectNN = 1;
+        case 2, isConnectNN = 0;
+    end
+    if ~isConnectNN
+        OPTIONS.ProcessName   = 'CFC(1xN)';
+    else
+        OPTIONS.ProcessName   = 'CFC(NxN)';
     end
     measure = OPTIONS.Method ;
     OPTIONS.isAvgOutput = sProcess.options.avgoutput.Value;
@@ -306,6 +320,11 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
         if ~isempty(sScouts)
             OPTIONS.Target = sScouts;
             OPTIONS.isScout = 1;
+            if ~isConnectNN && length(sScouts{1,2}) > 1
+                bst_report('Error', sProcess, [], 'Option "Seed-to-whole-brain": Only one scout region can be selected.');
+                return;
+            end    
+            
             % Apply function before: get all the scouts time series in advance
             if strcmpi(OPTIONS.ScoutTime, 'before')
                 [OPTIONS.TargetFunc] = deal(OPTIONS.ScoutFunc);
@@ -318,6 +337,7 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
         OPTIONS.isScout = 0;
     end
     
+        
     nAvg = 0;
     % Initialize progress bar
     if bst_progress('isVisible')
@@ -333,11 +353,13 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
     end
     LoadOptions.IgnoreBad   = 1;  % From raw files: ignore the bad segments
     LoadOptions.ProcessName = func2str(sProcess.Function);
+    LoadOptions.TargetFunc = OPTIONS.TargetFunc;
     
-    
+   
     maxlag = 0;
     DirectPAC_avg = [];
     for iFile = 1:length(sInputA)  
+        bst_progress('set',  round(startValue + (iFile-1) / length(sInputA) * 100));
         DirectPAC = [];
         
         % ===== LOAD SIGNALS =====
@@ -348,9 +370,24 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
         if isempty(sInputRef) || isempty(sInputRef.Data)
             return;
         end
-        [sInput, nSignals, iRows] = bst_process('LoadInputFile', sInputA(iFile).FileName, [], OPTIONS.TimeWindow, LoadOptions);
-        if isempty(sInput) || isempty(sInput.Data)
-            return;
+        % ===== GET SCOUTS SCTRUCTURES =====
+        % Save scouts structures in the options
+        if OPTIONS.isScout
+            OPTIONS.sScoutsA = process_extract_scout('GetScoutsInfo', LoadOptions.ProcessName, [], sInputRef.SurfaceFile, OPTIONS.Target);
+        else
+            OPTIONS.sScoutsA = [];
+        end
+        if ~isConnectNN
+            [sInput, nSignals, iRows] = bst_process('LoadInputFile', sInputA(iFile).FileName, [], OPTIONS.TimeWindow, LoadOptions);
+            if isempty(sInput) || isempty(sInput.Data)
+                return;
+            end
+            OPTIONS.sScoutsB = [];
+        else
+            sInput = sInputRef;
+            nSignals = nSignalsRef;
+            iRows = iRowsRef;
+            OPTIONS.sScoutsB = OPTIONS.sScoutsA;
         end
         
         % Get sampling frequency
@@ -384,7 +421,7 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
         nT = size(Fblock,2);
         nRef = nSignalsRef;
         nComponents = 1;
-        if strcmpi(sInput.DataType, 'results')
+        if strcmpi(sInputA(1).FileType, 'results')
             nComponents = sInput.nComponents;           
             if nComponents == 0
                 error('CFC metrics are not supported for mixed source models.');
@@ -402,10 +439,10 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
             end
             for iFreq = 1:nFreqs
                 if OPTIONS.isTimeLag == 1                        
-                    maxlag = 100;%min(floor(sRate/OPTIONS.Freqs(iFreq)/2),floor(nT*0.8)/4);
+                    maxlag = min(floor(sRate/OPTIONS.Freqs(iFreq)/2),floor(nT*0.8)/4);
                 end
                 BandBounds = [OPTIONS.Freqs(iFreq)-(FreqSteps/2) OPTIONS.Freqs(iFreq)+(FreqSteps/2)];
-                nS = 0;
+                %nS = 0;
                 
                 if strcmp(measure, 'esc')
                     sigYmat = bp_vec(Fblock,BandBounds,sRate,OPTIONS.Width,OPTIONS.TFmethod);
@@ -418,14 +455,14 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
 
                 for iSigY = 1:nComponents:nSignals
                     
-                    if mod(iSigY,round(nSignals/nComponents/100))==0
-                        bst_progress('set', round(startValue + (((iFile-1)*nRef*nFreqs+(iSigX-1)*nFreqs+(iFreq-1))*10+nS) / length(sInputA) / nRef /nFreqs /10* 100)); 
-                        nS = nS + 1;
-                    end
+%                     if mod(iSigY,round(nSignals/nComponents/100))==0
+%                         bst_progress('set', round(startValue + (((iFile-1)*nRef*nFreqs+(iSigX-1)*nFreqs+(iFreq-1))*10+nS) / length(sInputA) / nRef /nFreqs /10* 100)); 
+%                         nS = nS + 1;
+%                     end
                     
                     %pacmat = zeros(nComponents,nComponents);
                     
-                    if strcmp(measure, 'esc') || strcmp(measure, 'esp') || strcmp(measure, 'aec')
+                    if strcmp(measure, 'esc') || strcmp(measure, 'epc') || strcmp(measure, 'aec')
                         %sigY = bp_vec(Fblock(iSigY+(0:nComponents-1),:),BandBounds,sRate,OPTIONS.Width,OPTIONS.TFmethod);
                         %sigY = bpvec(sum(BandBounds)/2,Fblock(iSigY+(0:nComponents-1),:),sRate,BandBounds(2)-BandBounds(1));
                         %OPTIONS.RemoveMean = 1;
@@ -460,23 +497,23 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
             
         end
         
-        % ===== PROCESS SCOUTS =====
-        % If the scout function has to be applied AFTER the PAC computation
-        if ~isempty(OPTIONS.Target) && isstruct(OPTIONS.Target) && strcmpi(OPTIONS.ScoutTime, 'after') && ~strcmpi(OPTIONS.ScoutFunc, 'all')
-            nScouts = length(OPTIONS.Target);
-            DirectPAC_scouts = zeros(nScouts, size(DirectPAC,2), size(DirectPAC,3), size(DirectPAC,4));
-            iVerticesAll = [1, cumsum(cellfun(@length, {OPTIONS.Target.Vertices})) + 1];
-            % For each unique row name: compute a measure over the clusters values
-            for iScout = 1:nScouts
-                iScoutVert = iVerticesAll(iScout):iVerticesAll(iScout+1)-1;
-                F = reshape(DirectPAC(iScoutVert,:,:,:), length(iScoutVert), []);
-                F = bst_scout_value(F, OPTIONS.ScoutFunc);
-                DirectPAC_scouts(iScout,:,:,:) = reshape(F, [1, size(DirectPAC,2), size(DirectPAC,3), size(DirectPAC,4)]);
-            end
-            % Save only the requested rows
-            sInput.RowNames = {OPTIONS.Target.Label};
-            DirectPAC = DirectPAC_scouts;
-        end
+%         % ===== PROCESS SCOUTS =====
+%         % If the scout function has to be applied AFTER the PAC computation
+%         if ~isempty(OPTIONS.sScoutsA) && isstruct(OPTIONS.sScoutsA) && strcmpi(OPTIONS.ScoutTime, 'after') && ~strcmpi(OPTIONS.ScoutFunc, 'all')
+%             nScouts = length(OPTIONS.Target{1,2});
+%             DirectPAC_scouts = zeros(nScouts, size(DirectPAC,2), size(DirectPAC,3), size(DirectPAC,4));
+%             iVerticesAll = [1, cumsum(cellfun(@length, {OPTIONS.ScoutA.Vertices})) + 1];
+%             % For each unique row name: compute a measure over the clusters values
+%             for iScout = 1:nScouts
+%                 iScoutVert = iVerticesAll(iScout):iVerticesAll(iScout+1)-1;
+%                 F = reshape(DirectPAC(iScoutVert,:,:,:), length(iScoutVert), []);
+%                 F = bst_scout_value(F, OPTIONS.ScoutFunc);
+%                 DirectPAC_scouts(iScout,:,:,:) = reshape(F, [1, size(DirectPAC,2), size(DirectPAC,3), size(DirectPAC,4)]);
+%             end
+%             % Save only the requested rows
+%             sInput.RowNames = {OPTIONS.sScoutsA.Label};
+%             DirectPAC = DirectPAC_scouts;
+%         end
         DirectPAC = reshape(DirectPAC, [], 1, nFreqs);
        
         result_comment = sProcess.options.result_comm.Value;
@@ -485,9 +522,9 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
         end
         % Base comment
         if  OPTIONS.isTimeLag
-            Comment = [ result_comment 'Lagged' upper(measure) '(1xN)'];
+            Comment = [ result_comment 'Lagged' upper(measure)];
         else
-            Comment = [ result_comment upper(measure) '(1xN)'];
+            Comment = [ result_comment upper(measure) ];
         end
 
         
@@ -496,10 +533,10 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
             Comment = [Comment, sprintf('(%ds-%ds)', round(OPTIONS.TimeWindow))];
         end
         % Scouts
-        if isstruct(OPTIONS.Target) && (length(OPTIONS.Target) < 6)
+        if isstruct(OPTIONS.sScoutsA) && (length(OPTIONS.sScoutsA) < 6)
             Comment = [Comment, ':'];
-            for is = 1:length(OPTIONS.Target)
-                Comment = [Comment, ' ', OPTIONS.Target(is).Label];
+            for is = 1:length(OPTIONS.sScoutsA)
+                Comment = [Comment, ' ', OPTIONS.sScoutsA(is).Label];
             end
             Comment = [Comment, ', ', OPTIONS.ScoutFunc];
             if ~strcmpi(OPTIONS.ScoutFunc, 'All')
@@ -514,6 +551,8 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
             if ~iscell(sInput.RowNames)
                 sInput.RowNames = cellfun(@num2str, num2cell(sInput.RowNames), 'UniformOutput', 0);
             end
+        elseif strcmpi(sInput.DataType, 'data')  
+            Comment = [Comment, ': ' OPTIONS.Target];          
         % Single input
         elseif (length(sInput.RowNames) == 1)
             if iscell(sInput.RowNames)
@@ -687,6 +726,11 @@ function mival = mi_measure(phase_sig, amp_sig)
             mival(countX,countY) =  abs((m_raw));
         end
     end
+    
+    if num_compX~=1 || num_compY~=1
+        [U,S,V] = svd(mival);
+        mival = S(1,1);
+    end
 
 end
 
@@ -776,9 +820,9 @@ function NewFile = SaveFile(R, iOuptutStudy, DataFile, sInputA, sInputB, Comment
     % Process scouts: call aggregating function
     if (OPTIONS.isScout) && strcmpi(OPTIONS.ScoutTime, 'after') && ~strcmpi(OPTIONS.ScoutFunc, 'all')
         
-        sScoutsA = OPTIONS.Target;
+        sScoutsA = OPTIONS.sScoutsA;
 
-        sScoutsB = [];
+        sScoutsB = OPTIONS.sScoutsB;
         
         FileMat = process_average_rows('ProcessConnectScouts', FileMat, OPTIONS.ScoutFunc, sScoutsA, sScoutsB);
     end
@@ -807,19 +851,28 @@ function NewFile = SaveFile(R, iOuptutStudy, DataFile, sInputA, sInputB, Comment
 end
 function [c, lags] = lagged_corr(X,Y,maxlag)
     
-    N = length(X);
-    if length(Y) ~=N
+    N1 = size(X,1); N2 = size(Y,1); 
+    T = size(X,2);
+    if size(Y,2) ~= T 
         c=0; lags=0;
         return;
     end
     % if val < 3
     %     maxlag = N;
     % end
-
+    isSVD = 0;
+    if N1~=1 || N2~=1
+        isSVD = 1;
+    end
 
     if maxlag == 0
-        z = corrcoef(X,Y);
-        c = z(1,2);
+        c = bst_corrn(X, Y, 1); 
+        if isSVD
+            [U,S,V] = svd(real(c));
+            c = S(1,1);
+        end
+        %z = corrcoef(X,Y);
+        %c = z(1,2);
         lags = 0;
         return;
     end
@@ -827,8 +880,12 @@ function [c, lags] = lagged_corr(X,Y,maxlag)
     ms = -maxlag:10:maxlag;
     for t=1:length(ms)
         m=ms(t);
-        z = corrcoef(X(m+maxlag+(1:K)),Y(maxlag+(1:K)-1));
-        c(t) = z(1,2);
+        z = bst_corrn(X(:,m+maxlag+(1:K)),Y(:,maxlag+(1:K)-1),1);
+        if isSVD
+            [U,S,V] = svd(real(z));
+            z = S(1,1);
+        end
+        c(t) = z;
     end
     [val,ind]=max(c);
     c=val;
