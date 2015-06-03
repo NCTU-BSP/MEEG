@@ -87,6 +87,11 @@ function sProcess = GetDescription() %#ok<DEFNU>
     sProcess.options.sensortypes.Comment = 'Sensor types or names (empty=all): ';
     sProcess.options.sensortypes.Type    = 'text';
     sProcess.options.sensortypes.Value   = 'MEG';
+    
+    sProcess.options.scouts.Comment = 'Use scouts (no selection=all):';
+    sProcess.options.scouts.Type = 'scout';
+    sProcess.options.scouts.Value      = [];
+
     % === BASELINE TIME RANGE FOR Z STATISTICS CALCULATION
     sProcess.options.baseline_time.Comment = 'Baseline: ';
     sProcess.options.baseline_time.Type    = 'baseline';
@@ -108,7 +113,8 @@ end
 function OutputFiles = Run(sProcess, sInputs) %#ok<DEFNU>
     % Initialize returned list of files
     OutputFiles = {};
-    
+    % Selected scouts
+    sScouts = sProcess.options.scouts.Value;
     % Get option values
     BaselineTime  = sProcess.options.baseline_time.Value{1};
     FmapRange   = sProcess.options.fmaps_range.Value{1};
@@ -204,6 +210,18 @@ function OutputFiles = Run(sProcess, sInputs) %#ok<DEFNU>
        bst_report('Error', sProcess, sInputs, 'No dipole orientation for cortical constrained beamformer estimation.');
        % Stop the process
        return;  
+    end
+    
+    % ===== LOAD SCOUTS =====
+    isScout = 1;
+    if isempty(sScouts) || isequal(sHeadModel.HeadModelType,'volume')
+        isScout = 0;
+        nScoutVertex = nSources;
+    end
+    if isScout
+        sScoutsInfo = process_extract_scout('GetScoutsInfo', '@ Beamformer:MCB', [], sHeadModel.SurfaceFile, sScouts);
+        sScoutVerticesList = unique([sScoutsInfo.Vertices]);
+        nScoutVertex = length(sScoutVerticesList);
     end
 
     
@@ -375,13 +393,16 @@ function OutputFiles = Run(sProcess, sInputs) %#ok<DEFNU>
     
     %% Compute the spatial filter and f value for each position   
     if sProcess.options.oriconstraint.Value == 1; 
-        % Initial the index for gain matrix
-        iGain = [1 2 3];
+%         % Initial the index for gain matrix
+%         iGain = [1 2 3];
         
-        for i = 1:nSources
+        for iScoutVertex = 1:nScoutVertex
+                
+            i = sScoutVerticesList(iScoutVertex);
+            iGain = [1 2 3] + 3*(i-1);
             if Loc(i,1) < 0.01 && Loc(i,1) > -0.01 && Loc(i,2) < 0.01 && Loc(i,2) > -0.01 && Loc(i,3) < 0.01 && Loc(i,3) > -0.01
                 bst_progress('inc',2);
-                iGain = iGain + 3;
+                
                 continue;
             else
                 % Compute A = inv(C+alpha*I)*Lr
@@ -434,14 +455,20 @@ function OutputFiles = Run(sProcess, sInputs) %#ok<DEFNU>
                 end
                 % Save teh result 
                 ImagingKernel(i,:) = SpatialFilter / sqrt(varControl);
-                % The index of gain for the next dipole positions 
-                iGain = iGain + 3;
+                
             end
             
         end
 
     else
-        for i = 1:nSources
+        for iScoutVertex = 1:nScoutVertex
+            i = sScoutVerticesList(iScoutVertex);
+            %iGain = [1 2 3] + 3*(i-1);
+            if Loc(i,1) < 0.01 && Loc(i,1) > -0.01 && Loc(i,2) < 0.01 && Loc(i,2) > -0.01 && Loc(i,3) < 0.01 && Loc(i,3) > -0.01
+                bst_progress('inc',2);
+                
+                continue;
+            end
             % Compute the spatial filter with cortical constrained dipole orientation
 
             % Compute A = inv(C+alpha*I)*Lr

@@ -82,7 +82,7 @@ function sProcess = GetDescription() %#ok<DEFNU>
     sProcess.options.label_pac.Comment = '<HTML><BR><B><U>Estimator options</U></B>:';
     sProcess.options.label_pac.Type    = 'label';
     % === PAC MEASURES ===
-    sProcess.options.pacmeasure.Comment    = {'AEC', 'ESC', 'EPC', 'MI', 'CFC measure:'};
+    sProcess.options.pacmeasure.Comment    = {'AEC', 'ESC', 'MI', 'CFC measure:'};
     sProcess.options.pacmeasure.Type       = 'radio_line';
     sProcess.options.pacmeasure.Value      = 1;
     % === TIME LAGGED
@@ -227,8 +227,8 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
     switch (sProcess.options.pacmeasure.Value)
         case 1, OPTIONS.PACmeasure = 'aec';
         case 2, OPTIONS.PACmeasure = 'esc';
-        case 3, OPTIONS.PACmeasure = 'epc';
-        case 4, OPTIONS.PACmeasure = 'mi';
+        %case 3, OPTIONS.PACmeasure = 'epc';
+        case 3, OPTIONS.PACmeasure = 'mi';
     end
     sProcess.options.tfmethod.Value = 1;
     switch (sProcess.options.tfmethod.Value)
