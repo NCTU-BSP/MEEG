@@ -26,7 +26,7 @@ end
 %% ===== GET DESCRIPTION =====
 function sProcess = GetDescription() %#ok<DEFNU>
     % Description the process
-    sProcess.Comment = 'Stacked Autoendcoder';
+    sProcess.Comment = 'Stacked Autoencoder';
     sProcess.FileTag = '';
     sProcess.Category    = 'Stat2';
     sProcess.SubGroup    = 'Test';
@@ -44,7 +44,7 @@ function sProcess = GetDescription() %#ok<DEFNU>
     sProcess.options.hid1_neuron.Value = {100,'',0};
     sProcess.options.hid1_learningRate.Comment = 'hidden layer 1 learning rate: ';
     sProcess.options.hid1_learningRate.Type = 'value';
-    sProcess.options.hid1_learningRate.Value = {0.01,'',4};
+    sProcess.options.hid1_learningRate.Value = {0.001,'',6};
     
     % Hidden Layer2
     sProcess.options.label2.Comment = '<HTML><BR><U><B>Hidden Layer2</B></U>:';
@@ -54,20 +54,25 @@ function sProcess = GetDescription() %#ok<DEFNU>
     sProcess.options.hid2_neuron.Value = {100,'',0};   
     sProcess.options.hid2_learningRate.Comment = 'hidden layer 2 learning rate: ';
     sProcess.options.hid2_learningRate.Type = 'value';
-    sProcess.options.hid2_learningRate.Value = {0.01,'',4};
+    sProcess.options.hid2_learningRate.Value = {0.001,'',6};
     
     
     sProcess.options.label3.Comment = '<HTML><BR><U><B>Model Parameter</B></U>:';
     sProcess.options.label3.Type    = 'label';
     % number of epoch
-    sProcess.options.niter.Comment = 'Number of iteraitions';
+    sProcess.options.niter.Comment = 'Number of iteraitions: ';
     sProcess.options.niter.Type = 'value';
     sProcess.options.niter.Value = {100,'',0};
     
     % number of batchsize
-    sProcess.options.batchsize.Comment = 'Number of batch size';
+    sProcess.options.batchsize.Comment = 'Number of batch size (must be a factor of trial num): ';
     sProcess.options.batchsize.Type = 'value';
     sProcess.options.batchsize.Value = {[],'',0};
+    
+    %scaling factor
+    sProcess.options.scaling.Comment = 'Data Scaling factor:(number of power)';
+    sProcess.options.scaling.Type = 'value';
+    sProcess.options.scaling.Value = {0,'',0};    
 end
 
 
@@ -90,15 +95,15 @@ data_A = [];
     datamat = in_bst(sInputsA(i).FileName);
     if strcmp(sInputsA(i).FileType,'timefreq') == 1 
         size_data = size(squeeze(datamat.TF));
-        single_data = reshape(squeeze(datamat.TF),1,size_data(1)*size_data(2));
-        data_A = vertcat(data_A,single_data);      
+        single_data = reshape(squeeze(datamat.TF),1,1,size_data(1)*size_data(2)*size_data(3));
+        data_A = vertcat(data_A,squeeze(single_data));      
     else
         size_data = size(datamat.F);
         single_data = reshape(datamat.F,1,size_data(1)*size_data(2));
         data_A = vertcat(data_A,single_data);
     end
  end
- size_data
+
 % process inputB
 fiB_ln = length(sInputsB);
 data_B = [];
@@ -107,8 +112,8 @@ data_B = [];
     datamat = in_bst(sInputsB(i).FileName);
     if strcmp(sInputsA(i).FileType,'timefreq') == 1 
         size_data = size(squeeze(datamat.TF));
-        single_data = reshape(squeeze(datamat.TF),1,size_data(1)*size_data(2));
-        data_B = vertcat(data_B,single_data);      
+        single_data = reshape(squeeze(datamat.TF),1,1,size_data(1)*size_data(2)*size_data(3));
+        data_B = vertcat(data_B,squeeze(single_data));      
     else
         size_data = size(datamat.F);
         single_data = reshape(datamat.F,1,size_data(1)*size_data(2));
@@ -123,8 +128,8 @@ data_B = [];
  label = zeros(allA_ln(1)+allB_ln(1),2);
  label(1:allA_ln(1),1)=1;
  label(allA_ln(1)+1:end,2)=1;
-
- alldata = [data_A;data_B];
+ sf = sProcess.options.scaling.Value{1};
+ alldata = [data_A;data_B]*10^sf;
  all_ln = size(alldata);
  %%----------------SAE model-----------------------
  rand('state',0)
@@ -145,6 +150,18 @@ nn.W{1} = sae.ae{1}.W{1};
 nn.W{2} = sae.ae{2}.W{1};
 nn = nntrain(nn, alldata, label, opts);
 
+labels = nnpredict(nn, alldata);
+
+for s = 1 : numel(labels)
+   if label(s,labels(s)) == 1
+       acc(s) =1;
+   else
+       acc(s) =0;
+   end
+end
+disp('')
+disp(['Training data accuracy is ' num2str(mean(acc))]);
+disp('')
 save('sae_model','nn');
 sOutput = [];
 end
