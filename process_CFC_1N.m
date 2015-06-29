@@ -121,6 +121,7 @@ function sProcess = GetDescription() %#ok<DEFNU>
     % === OUTPUT TYPE  ===
     sProcess.options.outtype.Comment    = {'ROI-to-ROI', 'ROI-to-whole-brain', 'Output:'};
     sProcess.options.outtype.Type       = 'radio_line';
+    sProcess.options.outtype.InputTypes   = {'results'};
     sProcess.options.outtype.Value      = 1;
     % === AVERAGE OUTPUT FILES
     sProcess.options.avgoutput.Comment = 'Save average PAC across trials (one output file only)';
