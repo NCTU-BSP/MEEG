@@ -88,6 +88,12 @@ function sProcess = GetDescription() %#ok<DEFNU>
     sProcess.options.sensortypes.Type    = 'text';
     sProcess.options.sensortypes.Value   = 'MEG';
     
+    % === OPTIONS: COMPUTE IN SELECT SCOUTS
+    sProcess.options.usescouts.Comment = 'Compute sources in scouts (uncheck=whole brain)';
+    sProcess.options.usescouts.Type    = 'checkbox';
+    sProcess.options.usescouts.Value   = 0;   
+    
+    % === OPTIONS: SELECTED SCOUTS
     sProcess.options.scouts.Comment = 'Use scouts (no selection=all):';
     sProcess.options.scouts.Type = 'scout';
     sProcess.options.scouts.Value      = [];
@@ -126,6 +132,7 @@ function OutputFiles = Run(sProcess, sInputs) %#ok<DEFNU>
     isSaveFilter = sProcess.options.savefilter.Value;
     %SFcriteriaType = sProcess.options.sfcriteria.Value;
     MinVarRange = sProcess.options.minvar_range.Value{1};
+    isScout = sProcess.options.usescouts.Value;
     
     result_comment = sProcess.options.result_comm.Value;
     if ~isempty(result_comment)
@@ -213,11 +220,14 @@ function OutputFiles = Run(sProcess, sInputs) %#ok<DEFNU>
     end
     
     % ===== LOAD SCOUTS =====
-    isScout = 1;
-    if isempty(sScouts) || isequal(sHeadModel.HeadModelType,'volume')
+    if isempty(sScouts) || isequal(sHeadModel.HeadModelType,'volume') || (isScout==0)
         isScout = 0;
         nScoutVertex = nSources;
+        sScoutVerticesList = 1:nSources;
+    else
+        isScout = 1;
     end
+    
     if isScout
         sScoutsInfo = process_extract_scout('GetScoutsInfo', '@ Beamformer:MCB', [], sHeadModel.SurfaceFile, sScouts);
         sScoutVerticesList = unique([sScoutsInfo.Vertices]);

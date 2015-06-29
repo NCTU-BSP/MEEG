@@ -1,4 +1,4 @@
-function varargout = process_SISSCBeamformer_20150209_esay( varargin )
+function varargout = process_beamformer_con( varargin )
 % PROCESS_BEAMFORMER_TEST: 
 
 % @=============================================================================
@@ -28,7 +28,7 @@ end
 %% ===== GET DESCRIPTION =====
 function sProcess = GetDescription() %#ok<DEFNU>
     % Description the process
-    sProcess.Comment     = 'SILSC Beamformer version easy (20150209)';
+    sProcess.Comment     = 'Beamformer-based connectivity imaging';
     sProcess.FileTag     = '';
     sProcess.Category    = 'Custom';
     sProcess.SubGroup    = 'Connectivity';
@@ -39,17 +39,7 @@ function sProcess = GetDescription() %#ok<DEFNU>
     sProcess.nInputs     = 2;
     sProcess.nMinFiles   = 1;
     
-    sProcess.options.beamformertype.Comment = {'Vector-type beamformer', 'Scalar-type beamformer'};
-    sProcess.options.beamformertype.Type    = 'radio';
-    sProcess.options.beamformertype.Value   = 1;
-    % === MEASURE ===
-    sProcess.options.measure.Comment    = {'Corr', 'Coh', 'ESC', 'CFC', 'Measure:'};
-    sProcess.options.measure.Type       = 'radio_line';
-    sProcess.options.measure.Value      = 1;
-    % Separator
-    %sProcess.options.sep.Type     = 'separator';
-    sProcess.options.sep.Comment = '  ';
-    sProcess.options.sep.Type    = 'label';
+   %sProcess.options.sep.Type    = 'label';
 %     % Definition of the options
 %     sProcess.options.oriconstraint.Comment = {'Unconstrained', 'Cortical Constrained'};
 %     sProcess.options.oriconstraint.Type    = 'radio';
@@ -61,23 +51,44 @@ function sProcess = GetDescription() %#ok<DEFNU>
     sProcess.options.result_comm.Comment    = 'Comment: ';
     sProcess.options.result_comm.Type       = 'text';
     sProcess.options.result_comm.Value      = '';
-    
-    sProcess.options.ref_range.Comment = 'Time range of reference signal: ';
-    sProcess.options.ref_range.Type    = 'timewindow';
-    sProcess.options.ref_range.Value   = [];
-    
-    sProcess.options.ref_replicate_tresolution.Comment = 'Temporal resolution: ';
-    sProcess.options.ref_replicate_tresolution.Type    = 'value';
-    sProcess.options.ref_replicate_tresolution.Value   = {0.01, 'ms', 1};    
-    
-    sProcess.options.ref_replicate_num.Comment = 'Number to replicate reference signals:';
-    sProcess.options.ref_replicate_num.Type    = 'value';
-    sProcess.options.ref_replicate_num.Value   = {1,'times',0};
-    
-    sProcess.options.ref_replicate_interval.Comment = 'Interval of replicated reference signals:';
-    sProcess.options.ref_replicate_interval.Type    = 'value';
-    sProcess.options.ref_replicate_interval.Value   = {0.01,'ms',1};
+    % === MEASURE ===
+    sProcess.options.measure.Comment    = {'SILSC (Corr)', 'BIPAC (ESC)', 'Methods (Measures):'};
+    sProcess.options.measure.Type       = 'radio_line';
+    sProcess.options.measure.Value      = 1;
+    % Options: Time-freq
+    sProcess.options.labelC.Comment = '<HTML><B><U>Options for BIPAC (ESC)</U></B>:';
+    sProcess.options.labelC.Type     = 'label';
+    % === NESTING FREQ
+    sProcess.options.nesting.Comment = 'Nesting frequency band (low, data, Files A):';
+    sProcess.options.nesting.Type    = 'range';
+    sProcess.options.nesting.Value   = {[2, 30], 'Hz', 2};
+    % === NESTED FREQ
+    sProcess.options.nested.Comment = 'Nested frequency band (high, ref, Files B):';
+    sProcess.options.nested.Type    = 'range';
+    sProcess.options.nested.Value   = {[40, 150], 'Hz', 2};
+    % Options: number of randomization test
+    sProcess.options.nRand.Comment = 'Number of randomization (very time consuming)';
+    sProcess.options.nRand.Type   = 'value';
+    sProcess.options.nRand.Value   = {0, '', 0};    
+    sProcess.options.nRand.Hidden   = 1;  
+%     sProcess.options.ref_replicate_num.Comment = 'Number to replicate reference signals:';
+%     sProcess.options.ref_replicate_num.Type    = 'value';
+%     sProcess.options.ref_replicate_num.Value   = {1,'times',0};
+%     
+%     sProcess.options.ref_replicate_interval.Comment = 'Interval of replicated reference signals:';
+%     sProcess.options.ref_replicate_interval.Type    = 'value';
+%     sProcess.options.ref_replicate_interval.Value   = {0.01,'ms',1};
 
+    % Separator
+    sProcess.options.sep2.Type     = 'separator';
+    sProcess.options.sep2.Comment = '  ';
+    
+    sProcess.options.labelB.Comment = '<HTML><B><U>Estimation options (Files A)</U></B>:';
+    sProcess.options.labelB.Type = 'label';
+%     sProcess.options.beamformertype.Comment = {'Vector-type beamformer', 'Scalar-type beamformer'};
+%     sProcess.options.beamformertype.Type    = 'radio';
+%     sProcess.options.beamformertype.Value   = 1;
+    
 
     % === ACTIVE TIME RANGE
     sProcess.options.corr_range.Comment = 'Time range of interest: ';
@@ -94,30 +105,45 @@ function sProcess = GetDescription() %#ok<DEFNU>
     % === REGULARIZATION
     sProcess.options.reg.Comment = 'Regularization parameter: ';
     sProcess.options.reg.Type    = 'value';
-    sProcess.options.reg.Value   = {0.3, '%', 4};
+    sProcess.options.reg.Value   = {0.1, '%', 4};
     % === Sensor types
     sProcess.options.sensortypes.Comment = 'Sensor types or names (empty=all): ';
     sProcess.options.sensortypes.Type    = 'text';
     sProcess.options.sensortypes.Value   = 'MEG, EEG';
+    
     % Separator
-    %sProcess.options.sep.Type     = 'separator';
-    sProcess.options.sep2.Comment = '  ';
-    sProcess.options.sep2.Type    = 'label';
+    sProcess.options.sep.Type     = 'separator';
+    sProcess.options.sep.Comment = '  ';   
+    
+    sProcess.options.labelA.Comment = '<HTML><B><U>Reference signal options (Files B)</U></B>:';
+    sProcess.options.labelA.Type     = 'label';
+    % === REF TIME TYPE ===
+    sProcess.options.ref_range_type.Comment    = {'Fixed time range (Absolute)', 'Range of time delay (Relative)', 'Time range type:'};
+    sProcess.options.ref_range_type.Type       = 'radio_line';
+    sProcess.options.ref_range_type.Value      = 1;    
+    
+    % === TIME WINDOW ===
+    sProcess.options.ref_range.Comment = 'Time range to extract ref signal: ';
+    sProcess.options.ref_range.Type    = 'timewindow';
+    sProcess.options.ref_range.Value   = [];
+    
+    sProcess.options.ref_replicate_tresolution.Comment = 'Temporal resolution to extract ref signal: ';
+    sProcess.options.ref_replicate_tresolution.Type    = 'value';
+    sProcess.options.ref_replicate_tresolution.Value   = {0.01, 'ms', 1};   
+    % Options: Hanning window
+    sProcess.options.isHann.Comment = 'Apply hanning window';
+    sProcess.options.isHann.Type    = 'checkbox';
+    sProcess.options.isHann.Value   = 0;
+    
+
+    %sProcess.options.sep2.Type    = 'label';
 %     % Options: Mirror
 %     sProcess.options.mirror.Comment = 'Estimating in frequency domain';
 %     sProcess.options.mirror.Type    = 'checkbox';
 %     sProcess.options.mirror.Value   = 0;
 %     sProcess.options.mirror.InputTypes = {'data'};
 
-    % Options: Time-freq
-    % === NESTING FREQ
-    sProcess.options.nesting.Comment = 'Nesting frequency band (low, data):';
-    sProcess.options.nesting.Type    = 'range';
-    sProcess.options.nesting.Value   = {[2, 30], 'Hz', 2};
-    % === NESTED FREQ
-    sProcess.options.nested.Comment = 'Nested frequency band (high, ref):';
-    sProcess.options.nested.Type    = 'range';
-    sProcess.options.nested.Value   = {[40, 150], 'Hz', 2};
+
     
 %     % === Low bound
 %     sProcess.options.highpassA.Comment = 'Lower cutoff frequency (Data):';
@@ -139,33 +165,30 @@ function sProcess = GetDescription() %#ok<DEFNU>
 %     sProcess.options.lowpassB.Type    = 'value';
 %     sProcess.options.lowpassB.Value   = {0,'Hz ',2};
 %     sProcess.options.lowpassB.InputTypes = {'data'};  
-    % === TF METHOD  ===
-    sProcess.options.tfmethod.Comment    = {'Hilbert', 'Wavelet', 'STFT', 'TF method:'};
-    sProcess.options.tfmethod.Type       = 'radio_line';
-    sProcess.options.tfmethod.Value      = 1;
-    % === Width 
-    sProcess.options.width.Comment = 'Cycles of wavelet:';
-    sProcess.options.width.Type    = 'value';
-    sProcess.options.width.Value   = {7, 'Cycles', 0}; 
-    % === WINDOW LENGTH
-    sProcess.options.winlength.Comment = 'Estimator window length: ';
-    sProcess.options.winlength.Type    = 'value';
-    sProcess.options.winlength.Value   = {0.128, 'ms ', 1};
-    sProcess.options.winlength.InputTypes = {'data'};
-    % === Low bound
-    sProcess.options.winoverlap.Comment = 'Overlap percentage: ';
-    sProcess.options.winoverlap.Type    = 'value';
-    sProcess.options.winoverlap.Value   = {0.75, '% ', 1};
-    sProcess.options.winoverlap.InputTypes = {'data'};
+%     % === TF METHOD  ===
+%     sProcess.options.tfmethod.Comment    = {'Hilbert', 'Wavelet', 'STFT', 'TF method:'};
+%     sProcess.options.tfmethod.Type       = 'radio_line';
+%     sProcess.options.tfmethod.Value      = 1;
+%     % === Width 
+%     sProcess.options.width.Comment = 'Cycles of wavelet:';
+%     sProcess.options.width.Type    = 'value';
+%     sProcess.options.width.Value   = {7, 'Cycles', 0}; 
+%     % === WINDOW LENGTH
+%     sProcess.options.winlength.Comment = 'Estimator window length: ';
+%     sProcess.options.winlength.Type    = 'value';
+%     sProcess.options.winlength.Value   = {0.128, 'ms ', 1};
+%     sProcess.options.winlength.InputTypes = {'data'};
+%     % === Low bound
+%     sProcess.options.winoverlap.Comment = 'Overlap percentage: ';
+%     sProcess.options.winoverlap.Type    = 'value';
+%     sProcess.options.winoverlap.Value   = {0.75, '% ', 1};
+%     sProcess.options.winoverlap.InputTypes = {'data'};
 %     % === Freq band
 %     sProcess.options.freqband.Comment = 'Frequency band of interested:';
 %     sProcess.options.freqband.Type    = 'text';
 %     sProcess.options.freqband.Value   = 'beta';
 %     sProcess.options.freqband.InputTypes = {'timefreq'};
-    % Options: Hanning window
-    sProcess.options.isHann.Comment = 'Apply hanning window to reference signals';
-    sProcess.options.isHann.Type    = 'checkbox';
-    sProcess.options.isHann.Value   = 0;
+    
    
 %     % === SCOUTS ===
 %     sProcess.options.scouts.Comment = 'Use scouts';
@@ -254,7 +277,7 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
     % Get option values
     %isFreq = sProcess.options.mirror.Value;
     OPTIONS.isHann = sProcess.options.isHann.Value;
-    OPTIONS.BeamformerType = sProcess.options.beamformertype.Value;
+    OPTIONS.BeamformerType = 2;%sProcess.options.beamformertype.Value;
     %ActiveTime  = sProcess.options.active_time.Value{1};
     %MinVarTime  = sProcess.options.minvar_time.Value{1};
     %OPTIONS.RefTime   = sProcess.options.ref_range.Value{1};
@@ -265,38 +288,41 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
     OPTIONS.WinSize = sProcess.options.active_window_size.Value{1};
 %     OPTIONS.BandBoundsData = sProcess.options.nesting.Value;
 %     OPTIONS.BandBoundsRef =  sProcess.options.nested.Value;
-    OPTIONS.WinOverlap = sProcess.options.winoverlap.Value{1};
-    OPTIONS.SegmentLength = sProcess.options.winlength.Value{1};
-    OPTIONS.Width = sProcess.options.width.Value{1};
+%     OPTIONS.WinOverlap = sProcess.options.winoverlap.Value{1};
+%     OPTIONS.SegmentLength = sProcess.options.winlength.Value{1};
+%     OPTIONS.Width = sProcess.options.width.Value{1};
     % Get and check frequencies
     OPTIONS.BandBoundsData = sProcess.options.nesting.Value{1};
     OPTIONS.BandBoundsRef  = sProcess.options.nested.Value{1};
-    OPTIONS.Width = sProcess.options.width.Value{1};
+    OPTIONS.RefRangeType = sProcess.options.ref_range_type.Value;
+    OPTIONS.Width = 256;
     %OPTIONS.Target = sProcess.options.scouts.Value;
-    
-    if (min(OPTIONS.BandBoundsData) < 0.5)
-        bst_report('Error', sProcess, [], 'This function cannot be used to estimate PAC for nesting frequencies below 1Hz.');
-        return;
-    end
-    if (max(OPTIONS.BandBoundsData) > min(OPTIONS.BandBoundsRef))
-        bst_report('Error', sProcess, [], 'The low and high frequency band cannot overlap.');
-        return;
-    end   
-    
-    switch (sProcess.options.tfmethod.Value)
-        case 1, OPTIONS.TFmethod = 'hilbert';
-        case 2, OPTIONS.TFmethod = 'wavelet';
-        case 3, OPTIONS.TFmethod = 'stft';
-    end
+    OPTIONS.nRand = sProcess.options.nRand.Value{1};
+ 
+    OPTIONS.TFmethod = 'hilbert';
+%     switch (sProcess.options.tfmethod.Value)
+%         case 1, OPTIONS.TFmethod = 'hilbert';
+%         case 2, OPTIONS.TFmethod = 'wavelet';
+%         case 3, OPTIONS.TFmethod = 'stft';
+%     end
     switch (sProcess.options.measure.Value)
-        case 1, OPTIONS.measure = 'cor';
-        case 2, OPTIONS.measure = 'coh';
-        case 3, OPTIONS.measure = 'esc';
-        case 4, OPTIONS.measure = 'cfc';
+        case 1, OPTIONS.measure = 'cor'; OPTIONS.method = 'SILSC';
+        case 2, OPTIONS.measure = 'esc'; OPTIONS.method = 'BIPAC';
     end
     
-    OPTIONS.RepRefNum = sProcess.options.ref_replicate_num.Value{1};
-    OPTIONS.RepRefInterval = sProcess.options.ref_replicate_interval.Value{1};
+    if strcmp(OPTIONS.measure,'esc') || strcmp(OPTIONS.measure,'cfc') 
+        if (min(OPTIONS.BandBoundsData) < 0.5)
+            bst_report('Error', sProcess, [], 'This function cannot be used to estimate PAC for nesting frequencies below 1Hz.');
+            return;
+        end
+        if (max(OPTIONS.BandBoundsData) > min(OPTIONS.BandBoundsRef))
+            bst_report('Error', sProcess, [], 'The low and high frequency band cannot overlap.');
+            return;
+        end  
+    end
+    
+    OPTIONS.RepRefNum = 0;%sProcess.options.ref_replicate_num.Value{1};
+    OPTIONS.RepRefInterval = 0;%sProcess.options.ref_replicate_interval.Value{1};
     OPTIONS.RefDelayInterval = sProcess.options.ref_replicate_tresolution.Value{1};
     OPTIONS.RefDelayRange = sProcess.options.ref_range.Value{1};
     
@@ -333,7 +359,10 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
     DataFs = 1/(DataMat.Time(2)-DataMat.Time(1));
     
     CorrWindowSize     = OPTIONS.WinSize;%.RefTime(end)-OPTIONS.RefTime(1);%RefLength;
-    
+    if CorrWindowSize <= 0 || OPTIONS.CORRTResolu <= 0
+        CorrWindowSize = OPTIONS.CORRrange(2)-OPTIONS.CORRrange(1);
+        OPTIONS.CORRTResolu = 0;
+    end
     
     if OPTIONS.RepRefNum > 0 && OPTIONS.RepRefInterval > 0
         CorrWindowSize = CorrWindowSize + (OPTIONS.RepRefNum-1)*OPTIONS.RepRefInterval;
@@ -409,17 +438,26 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
         iCorrWindowTime(i,:) = single_iCorrWindow(1:nCorrWindowPoints);    
     end
     
-    bst_progress('start', 'Applying process: SILSC', 'Loading reference...', 0, length(InputsRef));
+    bst_progress('start', ['Applying process: ' OPTIONS.method], 'Loading reference...', 0, length(InputsRef));
 
-    nRef = 0;
+    nRef = 0; nOriRef = 0;
     nTrials = length(InputsData);
     AllRefData = cell(nCORR,1);
     RowName = {};
-    DelayList = OPTIONS.RefDelayRange(1):OPTIONS.RefDelayInterval:OPTIONS.RefDelayRange(2);
-    nDelay = length(DelayList);
-    if nDelay==0;
-        nDelay=1;
-        DelayList=0;
+    if OPTIONS.RefRangeType == 1
+        DelayList = ((OPTIONS.RefDelayRange(1)+CorrWindowSize):OPTIONS.RefDelayInterval:OPTIONS.RefDelayRange(2))-HalfCorrWindowSize;
+        nDelay = length(DelayList);
+        if nDelay==0;
+            nDelay=1;
+            DelayList=0;
+        end
+    elseif OPTIONS.RefRangeType == 2
+        DelayList = OPTIONS.RefDelayRange(1):OPTIONS.RefDelayInterval:OPTIONS.RefDelayRange(2);
+        nDelay = length(DelayList);
+        if nDelay==0;
+            nDelay=1;
+            DelayList=0;
+        end
     end
     RefLength = nCorrWindowPoints;
     TargetList = {};
@@ -428,59 +466,25 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
     for i = 1:length(InputsRef)
         % Read the file #i
         RefMat = in_bst(InputsRef(i).FileName, [], 0);
+        
         % Check the dimensions of the recordings matrix in this file
-%         if strcmpi(InputsRef(i).FileType,'matrix') 
-            if mod(size(RefMat.Value,1), nTrials)~=0
-                % Add an error message to the report
-                bst_report('Error', sProcess, InputsData, 'One reference file has a different number of trials.');
-                % Stop the process
-                return;
-            else
-                nRefSingleFile = (size(RefMat.Value,1) / nTrials);
-                refData = RefMat.Value;
-                
-            end
-%         elseif strcmpi(InputsRef(i).FileType,'timefreq')    
-%             if mod(size(RefMat.TF,1), nTrials)~=0
-%                 % Add an error message to the report
-%                 bst_report('Error', sProcess, InputsData, 'One reference file has a different number of trials.');
-%                 % Stop the process
-%                 return;
-%             else
-%                 refData = [];
-%                 nRefSingleFile = (size(RefMat.TF,1) / nTrials);
-%                 for iFreq = 1:size(RefMat.TF,3)
-%                     if strcmpi(RefMat.Freqs{iFreq,1},sProcess.options.freqband.Value)
-%                         refData = RefMat.TF(:,:,iFreq);
-%                         break;
-%                     end
-%                 end
-%                 if isempty(refData)
-%                     bst_report('Error', sProcess, InputsData, 'One reference file does not contain frequency of interested');                    
-%                     return;
-%                 end
-%             end
-%         end
-        % Check the dimensions of the recordings matrix in this file
-%         if size(RefMat.Value,1) ~= nRefTrials
-%             % Add an error message to the report
-%             bst_report('Error', sProcess, InputsData, 'One file has a different number of trials.');
-%             % Stop the process
-%             return;
-%         end      
+        if mod(size(RefMat.Value,1), nTrials)~=0
+            % Add an error message to the report
+            bst_report('Error', sProcess, InputsData, 'One reference file has a different number of trials.');
+            % Stop the process
+            return;
+        else
+            nRefSingleFile = (size(RefMat.Value,1) / nTrials);
+            refData = RefMat.Value;
+
+        end
+        OPTIONS.RefRangeType
         
         hw = hann(double(nCorrWindowPoints));
         for j = 1:nRefSingleFile
-            if strcmpi(InputsRef(i).FileType,'timefreq')  
-                RowName(nRef+j) = RefMat.RowNames(j);
-            else
-                RowName(nRef+j) = RefMat.Description(j);
-            end
-            TargetList{nRef+j}=RefMat.Atlas.Scouts(j);
-
             fileRefData = refData(j:nRefSingleFile:end,:);
             sRate = 1 / (RefMat.Time(2) - RefMat.Time(1));
-           
+
             if strcmp(OPTIONS.measure,'esc') || strcmp(OPTIONS.measure,'cfc')
                 fileRefData = amp_vec(fileRefData,OPTIONS.BandBoundsRef,sRate,OPTIONS.Width,OPTIONS.TFmethod);   
                 
@@ -488,12 +492,22 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
                     fileRefData = (fileRefData / sRate).^2;
                 end
             end
-            for k=1:nCORR
+            
+            for m=1:nDelay
+                if strcmpi(InputsRef(i).FileType,'timefreq')  
+                    RowName{nRef+m} = [RefMat.RowNames{j} ' (' DelayList(m) 'ms)'];
+                else
+                    RowName{nRef+m} = [RefMat.Description{j} ' (' DelayList(m) 'ms)'];
+                end
+            end
+            TargetList{nOriRef+j}=RefMat.Atlas.Scouts(j); 
+            
+            if OPTIONS.RefRangeType == 1
                 for m=1:nDelay
-                    refTime = CorrTimeList(k,:) + DelayList(m);
+                    refTime = OPTIONS.RefDelayRange(1) + OPTIONS.RefDelayInterval*(m-1) + [0 CorrWindowSize];
                     if (RefMat.Time(1) > refTime(1)) || (RefMat.Time(end) < refTime(2))
                         % Add an error message to the report
-                        bst_report('Error', sProcess, InputsData, 'One file has a different number of time points.');
+                        bst_report('Error', sProcess, InputsData, 'The selected range for extracting reference signal is out of range.');
                         % Stop the process
                         return;
                     end
@@ -511,11 +525,40 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
                     %    RefMatAvg = mean(RefMat.Value, 2);
                     %    fileRefData = bst_bsxfun(@minus, RefMat.Value, RefMatAvg);
                     %end   
-                    AllRefData{k} = cat(3,AllRefData{k}, cRefData);
+                    AllRefData{1} = cat(3,AllRefData{1}, cRefData);
+                end                
+            elseif OPTIONS.RefRangeType == 2
+                 
+                for k=1:nCORR
+                    for m=1:nDelay
+                        refTime = CorrTimeList(k,:) + DelayList(m);
+                        if (RefMat.Time(1) > refTime(1)) || (RefMat.Time(end) < refTime(2))
+                            % Add an error message to the report
+                            bst_report('Error', sProcess, InputsData, 'The selected range for extracting reference signal is out of range.');
+                            % Stop the process
+                            return;
+                        end
+                        iRefWindow = panel_time('GetTimeIndices', Time, refTime);                   
+                        iRefWindow = iRefWindow(1:nCorrWindowPoints); 
+                        cRefData = fileRefData(:,iRefWindow);
+                        if OPTIONS.isHann
+                             for n = 1:nTrials
+                                 cRefData(n,:) = cRefData(n,:).*hw';
+                             end  
+                        end
+
+                        %else
+                        %    RefMat.Value = RefMat.Value(j:nRefSingleFile:end,RefTimePoints);
+                        %    RefMatAvg = mean(RefMat.Value, 2);
+                        %    fileRefData = bst_bsxfun(@minus, RefMat.Value, RefMatAvg);
+                        %end   
+                        AllRefData{k} = cat(3,AllRefData{k}, cRefData);
+                    end
                 end
             end
         end
         nRef = nRef + nRefSingleFile*nDelay;
+        nOriRef = nOriRef + nRefSingleFile;
         bst_progress('inc',1);
     end
      
@@ -544,6 +587,17 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
     AllRefDataCellorig = AllRefDataCell;
     clear AllRefData;
     for m=1:nCORR
+        if OPTIONS.RefRangeType == 1 && m > 1
+            if nRef > 1
+                AllCovRef{m}.origcov = AllCovRef{1}.origcov;
+                AllCovRef{m}.originv_cov=AllCovRef{1}.originv_cov;
+            end
+            AllCovRef{m}.cov = AllCovRef{1}.cov;
+            AllCovRef{m}.inv_cov = AllCovRef{1}.inv_cov;
+            AllRefDataCellorig{m} = AllRefDataCellorig{1};
+            AllRefDataCell{m} = AllRefDataCell{1};
+            continue;
+        end
         AllRefData = AllRefDataCell{m};
         covRef = zeros(nRef,nRef);
         for i = 1:nTrials
@@ -613,7 +667,7 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
     NoiseCovMat  = load(file_fullpath(sChannelStudy.NoiseCov.FileName));
     NoiseCov     = NoiseCovMat.NoiseCov(iChannels,iChannels);
     
-    bst_progress('start', 'Applying process: SILSC', 'Calculating covariance matrices...', 0, length(InputsData)*nCORR);
+    bst_progress('start', ['Applying process: ' OPTIONS.method], 'Calculating covariance matrices...', 0, length(InputsData)*nCORR);
     
     % Reading all the input files in a big matrix
     for i = 1:nTrials
@@ -797,7 +851,7 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
     Ori = zeros(3,nSources/3,nCORR);
     spatialFilter = zeros(nSources/3, nChannels,nCORR); % calculate filter for outputs
     
-    bst_progress('start', 'Applying process: SILSC', 'Calculating spatial filters...', 0, nCORR*nSources/3);
+    bst_progress('start', ['Applying process: ' OPTIONS.method], 'Calculating spatial filters...', 0, nCORR*nSources/3);
     %testNum = str2double(sProcess.options.DICStest.Value);
     for r = 1:3:nSources % calculate noise power for index
         r2 = (r+2)/3;
@@ -808,7 +862,7 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
         for j=1:nCORR
             
             if OPTIONS.BeamformerType == 1
-                W = pinv(Gr' * MinVarCov_inv(:,:,j) * Gr)* Gr' * MinVarCov_inv;
+                W = pinv(Gr' * MinVarCov_inv * Gr)* Gr' * MinVarCov_inv;
 
 %               [u,s,v] = svd(real(W * MinVarCov(:,:,j) * W'));
                 
@@ -835,8 +889,8 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
                 spatialFilter(r2,:,j) = w;
                 
             else
-%                 Cr = MinVarCov_inv(:,:,j) * Gr; 
-%                 Dr = Gr' * Cr;
+                Cr = MinVarCov_inv * Gr; 
+                Dr = Gr' * Cr;
                 
                 Pr = Cr' * CovCovOfNumerator(:,:,j)* Cr;
                 Qr = Cr' * CorrCovOfDenominator(:,:,j)* Cr;
@@ -868,18 +922,18 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
     end
     nSources = nSources/3 ;
 
-    nRand = 1;
+    nRand = 0;%OPTIONS.nRand;
     %% Correction
     if nRand > 0
         % Generate simulation sources
-        bst_progress('start', 'Applying process: SILSC', 'Calculating Spurious Corr...', 0, nCORR*nSources);    
+        bst_progress('start', ['Applying process: ' OPTIONS.method], 'Calculating Spurious Corr...', 0, nCORR*nSources);    
         totalTimePoints = size(DataMat.F,2);
         simuSignalRef = randn(totalTimePoints,nRef/nDelay,nTrials);
         simuSignalTarget = randn(totalTimePoints,nTrials,nRand);
         CorrMapsRand = zeros(nSources,nRand,nCORR);
         for j=1:nCORR
             simuMeasurementsRef = zeros(nChannels,totalTimePoints,nTrials);
-            for iRef = 1:(nRef/nDelay)
+            for iRef = 1:nOriRef
                 r = TargetList{iRef}.Seed;
                 Gr = Kernel(:,(r-1)*3+(1:3))*Ori(:,r,j);
                 w = squeeze(spatialFilter(r,:,j));
@@ -905,7 +959,7 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
                         simuMeasurementsAll = simuMeasurementsRef(:,:,i) + powMat.*repmat(Gr,1,totalTimePoints);
                         ind = 1;
                         refSignals = zeros(nRef,nCorrWindowPoints);
-                        for iRef = 1:(nRef/nDelay)
+                        for iRef = 1:nOriRef
                             w = squeeze(spatialFilter(TargetList{iRef}.Seed,:,j));               
                             tmp=w*simuMeasurementsAll;
                             for m=1:nDelay
@@ -937,7 +991,7 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
     
     %% ===== Calculate weights =====
     if nDelay > 1
-        bst_progress('start', 'Applying process: SILSC', 'Calculating correlation dynamics...', 0, nSources);
+        bst_progress('start', ['Applying process: ' OPTIONS.method], 'Calculating weights ...', 0, nSources);
 
         CorrWeight = zeros(nSources,nCORR,nDelay,nRef/nDelay);
         CorrWeight2 = zeros(nSources,nCORR,nDelay,nRef/nDelay);
@@ -970,7 +1024,7 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
     end
     
     %% ===== ASSIGN MAPS AND KERNELS =====
-    bst_progress('start', 'Applying process: SILSC', 'Saving results...', 0, 3+nCORR*3);
+    bst_progress('start', ['Applying process: ' OPTIONS.method], 'Saving results...', 0, 3+nCORR*3);
     timestring = sprintf('%d_%d',round(OPTIONS.CORRrange(1)*1000),round(OPTIONS.CORRrange(2)*1000));
     if nCORR == 1        
 %         CORRRangePoints = panel_time('GetTimeIndices', Time, CORRrange);
@@ -988,7 +1042,7 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
         %TFMat.TimeBands         = {'corr',[num2str(CORRrange(1)) ',' num2str(CORRrange(end))], 'mean'};           % Leave it empty if using ImagingKernel
         TFMat.TF            = [CorrMaps; CorrMaps];
     else % Interpolate the correlation maps to have the same temporal resolution as the data
-        bst_progress('start', 'Applying process: SILSC', 'Interpolating correlation dynamics...', 0, nCORR+1);
+        bst_progress('start', ['Applying process: ' OPTIONS.method], ['Interpolating ' OPTIONS.measure ' dynamics...'], 0, nCORR+1);
 
 %         ImageGridAmpOriginal = CorrMaps;
 %         ImageGridAmp = zeros(nSources,nTime);
@@ -1010,7 +1064,8 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
         
         TFMat = db_template('timefreqmat');
 %         timestring2 = sprintf('(ws:%d%s,tr:%.1f%s)',round(CorrWindowSize*1000),'ms',OPTIONS.CORRTResolu*1000,'ms');     
-        TFMat.Time          = ((OPTIONS.CORRrange(1)+HalfCorrWindowSize):OPTIONS.CORRTResolu:(OPTIONS.CORRrange(end)-HalfCorrWindowSize))-(OPTIONS.RefDelayRange(1)+HalfCorrWindowSize); 
+        %TFMat.Time          = ((OPTIONS.CORRrange(1)+HalfCorrWindowSize):OPTIONS.CORRTResolu:(OPTIONS.CORRrange(end)-HalfCorrWindowSize))-(OPTIONS.RefDelayRange(1)+HalfCorrWindowSize); 
+        TFMat.Time          = CorrTimeList(:,1);
         TFMat.TimeBands     = {};
         TFMat.TF            = CorrMaps;
         
@@ -1040,9 +1095,9 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
 %         TFMat.Freqs         = 0;
 %     end
     TFMat.OPTIONS       = OPTIONS;
-    TFMat.Method        = OPTIONS.measure;
+    TFMat.Method        = 'corr';
     TFMat.TFMethod        = OPTIONS.TFmethod;
-    TFMat.Comment   = [result_comment 'SILSC: ' upper(TFMat.Method) '(' timestring  'ms' ')'];
+    TFMat.Comment   = [result_comment OPTIONS.method ': ' upper(OPTIONS.measure) '(' timestring  'ms)'];
     TFMat.TF = CorrMaps;
     TFMat.DataFile      = [];
     TFMat.DataType      = 'results';
@@ -1062,7 +1117,7 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
     [StudyContent,iStudy]=bst_get('StudyWithCondition',fileparts(InputsData(1).FileName));
  
     % Create a default output filename 
-    OutputFiles{1} = bst_process('GetNewFilename', fileparts(InputsData(1).FileName), 'timefreq_connect1_SILSC');
+    OutputFiles{1} = bst_process('GetNewFilename', fileparts(InputsData(1).FileName), 'timefreq_connect1_beam');
 
     % Save on disk
     bst_save(OutputFiles{1}, TFMat,'v6');
@@ -1082,7 +1137,7 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
             TFMat.OPTIONS       = OPTIONS;
             TFMat.Method        = OPTIONS.measure;
             TFMat.TFMethod        = OPTIONS.TFmethod;
-            TFMat.Comment   = [result_comment 'SILSC: ' upper(TFMat.Method) '(rand,' timestring  'ms' ')'];
+            TFMat.Comment   = [result_comment OPTIONS.method ': ' upper(OPTIONS.measure) '(rand, ' timestring  'ms)'];
             TFMat.DataFile      = [];
             TFMat.DataType      = 'results';
             TFMat.Measure       = 'other';
@@ -1101,7 +1156,7 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
             [StudyContent,iStudy]=bst_get('StudyWithCondition',fileparts(sInputsData(1).FileName));
 
             % Create a default output filename 
-            OutputFiles{i+1} = bst_process('GetNewFilename', fileparts(InputsData(1).FileName), 'timefreq_connect1_SILSC');
+            OutputFiles{i+1} = bst_process('GetNewFilename', fileparts(InputsData(1).FileName), 'timefreq_connect1_beam');
 
             % Save on disk
             bst_save(OutputFiles{i+1}, TFMat,'v6');
@@ -1125,7 +1180,7 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
 %             bst_progress('inc',1);
 %         end
         % ===== SAVE THE RESULTS =====
-        bst_progress('start', 'Applying process: SILSC', 'Saving results...', 0, 2);
+        bst_progress('start', ['Applying process: ' OPTIONS.method], 'Saving results...', 0, 2);
         
         TFMat = db_template('timefreqmat');
 %         timestring2 = sprintf('(ws:%d%s)',round(CorrWindowSize*1000),'ms');
@@ -1135,7 +1190,7 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
     else % Interpolate the correlation maps to have the same temporal resolution as the data
         bst_progress('inc',1);
         % Create a new data file structure
-        bst_progress('start', 'Applying process: SILSC', 'Saving results...', 0, 2);
+        bst_progress('start', ['Applying process: ' OPTIONS.method], 'Saving results...', 0, 2);
         
         TFMat = db_template('timefreqmat');
 %         timestring2 = sprintf('(ws:%d%s,tr:%.1f%s)',round(CorrWindowSize*1000),'ms',OPTIONS.CORRTResolu*1000,'ms');     
@@ -1148,7 +1203,7 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
     TFMat.OPTIONS       = OPTIONS;
     TFMat.Method        = OPTIONS.measure;
     TFMat.TFMethod        = OPTIONS.TFmethod;
-    TFMat.Comment   = [result_comment 'SILSC: ' upper(TFMat.Method) '(F map,' timestring  'ms' ')'];
+    TFMat.Comment   = [result_comment OPTIONS.method ': Fmap(' timestring  'ms)'];
     TFMat.DataFile      = [];
     TFMat.DataType      = 'results';
     TFMat.Measure       = 'other';
@@ -1167,7 +1222,7 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
     
     nOutputFiles = length(OutputFiles);
     % Create a default output filename 
-    OutputFiles{nOutputFiles+1} = bst_process('GetNewFilename', fileparts(InputsData(1).FileName), 'timefreq_connect1_SILSC');
+    OutputFiles{nOutputFiles+1} = bst_process('GetNewFilename', fileparts(InputsData(1).FileName), 'timefreq_connect1_beam');
 
     % Save on disk
     bst_save(OutputFiles{nOutputFiles+1}, TFMat,'v6');
@@ -1183,12 +1238,14 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
 %         sp_window_time_string = [];
         % Create a new data file structure
         ResultsMat2 = db_template('resultsmat');
-        [Cval,Ind]=max(CorrMaps');
-        clear Cval;
-        for i=1:nSources
-            spatialFilter(i,:,1) = spatialFilter(i,:,Ind(i));
+        if nCORR > 1
+            [Cval,Ind]=max(CorrMaps');
+            clear Cval;
+            for i=1:nSources
+                spatialFilter(i,:,1) = spatialFilter(i,:,Ind(i));
+            end
+            spatialFilter = squeeze(spatialFilter(:,:,1));
         end
-        spatialFilter = squeeze(spatialFilter(:,:,1));
         ResultsMat2.ImagingKernel = spatialFilter;
         ResultsMat2.ImageGridAmp  = [];
 
@@ -1197,23 +1254,23 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
         if strcmp(OPTIONS.measure,'cfc') || strcmp(OPTIONS.measure,'coh')
             if ~isCrossFreq               
                 if BeamformerType == 1
-                    ResultsMat2.Comment   = [result_comment 'DICS: spatial filter |' timestring  'ms(' num2str(BandBoundsData(1))  '-' num2str(BandBoundsData(2)) 'Hz)' ];
+                    ResultsMat2.Comment   = [result_comment OPTIONS.method ': spatial filter |' timestring  'ms(' num2str(BandBoundsData(1))  '-' num2str(BandBoundsData(2)) 'Hz)' ];
                 else
-                    ResultsMat2.Comment   = [result_comment 'SILSC: spatial filter |' timestring  'ms(' num2str(BandBoundsData(1))  '-' num2str(BandBoundsData(2)) 'Hz)' ];
+                    ResultsMat2.Comment   = [result_comment OPTIONS.method ': spatial filter |' timestring  'ms(' num2str(BandBoundsData(1))  '-' num2str(BandBoundsData(2)) 'Hz)' ];
                 end
             else
                 if BeamformerType == 1
-                    ResultsMat2.Comment   = [result_comment 'DICS: spatial filter |' timestring  'ms('  num2str(BandBoundsData(1))  '-' num2str(BandBoundsData(2)) ','  num2str(BandBoundsRef(1))  '-' num2str(BandBoundsRef(2)) 'Hz)' ];
+                    ResultsMat2.Comment   = [result_comment OPTIONS.method ': spatial filter |' timestring  'ms('  num2str(BandBoundsData(1))  '-' num2str(BandBoundsData(2)) ','  num2str(BandBoundsRef(1))  '-' num2str(BandBoundsRef(2)) 'Hz)' ];
                 else
-                    ResultsMat2.Comment   = [result_comment 'SILSC: spatial filter |' timestring  'ms('  num2str(BandBoundsData(1))  '-' num2str(BandBoundsData(2)) ','  num2str(BandBoundsRef(1))  '-' num2str(BandBoundsRef(2)) 'Hz)' ];
+                    ResultsMat2.Comment   = [result_comment OPTIONS.method ': spatial filter |' timestring  'ms('  num2str(BandBoundsData(1))  '-' num2str(BandBoundsData(2)) ','  num2str(BandBoundsRef(1))  '-' num2str(BandBoundsRef(2)) 'Hz)' ];
                 end
             end
               
         else
              if OPTIONS.BeamformerType == 1
-                ResultsMat2.Comment   = [result_comment 'DICS: spatial filter |' timestring  'ms' ];
+                ResultsMat2.Comment   = [result_comment OPTIONS.method ': spatial filter |' timestring  'ms' ];
             else
-                ResultsMat2.Comment   = [result_comment 'SILSC: spatial filter |' timestring  'ms' ];
+                ResultsMat2.Comment   = [result_comment OPTIONS.method ': spatial filter |' timestring  'ms' ];
             end
         end
 
@@ -1235,7 +1292,7 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
         iStudy = iChannelStudy;
         nOutputFiles = length(OutputFiles);
         % Create a default output filename 
-        OutputFiles{nOutputFiles+1} = bst_process('GetNewFilename', fileparts(InputsData(1).ChannelFile), 'results_SILSC_KERNEL');
+        OutputFiles{nOutputFiles+1} = bst_process('GetNewFilename', fileparts(InputsData(1).ChannelFile), 'results_beam_KERNEL');
 
         % Save on disk
         bst_save(OutputFiles{nOutputFiles+1}, ResultsMat2,'v6');
@@ -1247,158 +1304,77 @@ function OutputFiles = Run(sProcess, sInputsA, sInputsB) %#ok<DEFNU>
     
     %=== save weight===
     if nDelay > 1
-        CorrWeight = permute(CorrWeight,[1 3 2 4]);
-        for k = 1:nCORR%nDelay
-            
-            SingleCorrWeight = CorrWeight(:,:,k,1);
-%             TFMat.Time = DelayList;
-            timestring = sprintf('%d_%d',round(OPTIONS.CORRrange(1)*1000),round(OPTIONS.CORRrange(2)*1000));
-            if nDelay == 1        
-                % ===== SAVE THE RESULTS =====
-                bst_progress('start', 'Applying process: SILSC', 'Saving weights...', 0, 2);
-
-                TFMat = db_template('timefreqmat');
-%                 timestring2 = sprintf('(ws:%d%s)',round(CorrWindowSize*1000),'ms');
-%                 TFMat.Time          = [OPTIONS.CORRrange(1), OPTIONS.CORRrange(end)]; 
-                %TFMat.TimeBands         = {'corr',[num2str(CORRrange(1)) ',' num2str(CORRrange(end))], 'mean'};           % Leave it empty if using ImagingKernel
-
-            else % Interpolate the correlation maps to have the same temporal resolution as the data
-                bst_progress('start', 'Applying process: SILSC', 'Interpolating correlation dynamics...', 0, nCORR+1);
-                bst_progress('inc',1);
-                % Create a new data file structure
-                bst_progress('start', 'Applying process: SILSC', 'Saving results...', 0, 2);
-
-                TFMat = db_template('timefreqmat');
-%                 timestring2 = sprintf('(ws:%d%s,tr:%.1f%s)',round(CorrWindowSize*1000),'ms',CORRTResolu*1000,'ms');     
-%                 TFMat.Time          = (OPTIONS.CORRrange(1)+HalfCorrWindowSize):CORRTResolu:(OPTIONS.CORRrange(end)-HalfCorrWindowSize); 
+        cwcomment = 'weight';
+        for cw = 1:2
+            if cw==2
+                CorrWeight = CorrWeight2;
+                cwcomment = 'normalizedweight';
             end
-            TFMat.Time = DelayList;
-            if strcmp(OPTIONS.measure,'cfc') || strcmp(OPTIONS.measure,'coh')
-                TFMat.Method        = 'cohere';
-%                 TFMat.Freqs         = 1:nDelay;
-                if BeamformerType == 1                
-                    TFMat.Comment   = [result_comment 'DICS: cohere weight ' RowName{k} '|' timestring  'ms(' num2str(BandBounds(1))  '-' num2str(BandBounds(2)) 'Hz)' ];
-                else   
-                    TFMat.Comment   = [result_comment 'SILSC: cohere weight ' RowName{k} '|' timestring  'ms(' num2str(BandBounds(1))  '-' num2str(BandBounds(2)) 'Hz)' ];
-                end
-            else
-                TFMat.Method        = 'corr';
-%                 TFMat.Freqs         = DelayList;
-                if OPTIONS.BeamformerType == 1
-
-                    TFMat.Comment   = [result_comment 'DICS: corr weight ' RowName{k}  '|' timestring  'ms' ];
-                else
-
-                    TFMat.Comment   = [result_comment 'SILSC: corr weight ' RowName{k} '|' timestring  'ms' ];
-                end
-            end
-            TFMat.TF = SingleCorrWeight;
-            TFMat.DataFile      = [];
-            TFMat.DataType      = 'results';
-            TFMat.Measure       = 'other';
-            TFMat.RefRowNames   = RowName(k);
-            TFMat.RowNames      = 1:nSources;
-                      % Leave it empty if using ImagingKernel
-
-            TFMat.nAvg          = length(InputsData);
-            
-            if strcmp(sHeadModel.HeadModelType,'volume')     
-                TFMat.GridLoc       = sHeadModel.GridLoc;
-            else
-                TFMat.SurfaceFile   = sHeadModel.SurfaceFile;
-            end
-            % === NOT SHARED ===
-            % Get the output study (pick the one from the first file)
+            CorrWeight = permute(CorrWeight,[1 3 2 4]);           
             nOutputFiles = length(OutputFiles);
-            % Get the output study (pick the one from the first file)
-            [StudyContent,iStudy]=bst_get('StudyWithCondition',fileparts(sInputsData(1).FileName));
- 
-            % Create a default output filename 
-            OutputFiles{nOutputFiles+k} = bst_process('GetNewFilename', fileparts(InputsData(1).FileName), 'timefreq_connect1_SISSCweight');
-
-            % Save on disk
-            bst_save(OutputFiles{nOutputFiles+k}, TFMat,'v6');
-            % Register in database
-            db_add_data(iStudy, OutputFiles{nOutputFiles+k}, TFMat);
-            bst_progress('inc',1);
-            clear TFMat
-        end
-    end
-    %=== save weight===
-    if nDelay > 1
-        CorrWeight2 = permute(CorrWeight2,[1 3 2 4]);
-        for k = 1:nCORR%nDelay
             
-            SingleCorrWeight = CorrWeight2(:,:,k,1);
-%             TFMat.Time = DelayList;
-            timestring = sprintf('%d_%d',round(OPTIONS.CORRrange(1)*1000),round(OPTIONS.CORRrange(2)*1000));
-            if nDelay == 1        
-                % ===== SAVE THE RESULTS =====
-                bst_progress('start', 'Applying process: SILSC', 'Saving weights...', 0, 2);
+            for k = 1:nCORR%nDelay
+                timestring = sprintf('%d_%d',round(CorrTimeList(k,1)*1000),round(CorrTimeList(k,2)*1000));   
+                SingleCorrWeight = CorrWeight(:,:,k,1);
+    %             TFMat.Time = DelayList;
+                %timestring = sprintf('%d_%d',round(OPTIONS.CORRrange(1)*1000),round(OPTIONS.CORRrange(2)*1000));
+%                 if nDelay == 1        
+                    % ===== SAVE THE RESULTS =====
+                    bst_progress('start', ['Applying process: ' OPTIONS.method ], 'Saving results...', 0, 2);
 
-                TFMat = db_template('timefreqmat');
-%                 timestring2 = sprintf('(ws:%d%s)',round(CorrWindowSize*1000),'ms');
-%                 TFMat.Time          = [OPTIONS.CORRrange(1), OPTIONS.CORRrange(end)]; 
-                %TFMat.TimeBands         = {'corr',[num2str(CORRrange(1)) ',' num2str(CORRrange(end))], 'mean'};           % Leave it empty if using ImagingKernel
+                    TFMat = db_template('timefreqmat');
+    %                 timestring2 = sprintf('(ws:%d%s)',round(CorrWindowSize*1000),'ms');
+    %                 TFMat.Time          = [OPTIONS.CORRrange(1), OPTIONS.CORRrange(end)]; 
+                    %TFMat.TimeBands         = {'corr',[num2str(CORRrange(1)) ',' num2str(CORRrange(end))], 'mean'};           % Leave it empty if using ImagingKernel
 
-            else % Interpolate the correlation maps to have the same temporal resolution as the data
-                bst_progress('start', 'Applying process: SILSC', 'Interpolating correlation dynamics...', 0, nCORR+1);
-                bst_progress('inc',1);
-                % Create a new data file structure
-                bst_progress('start', 'Applying process: SILSC', 'Saving results...', 0, 2);
-
-                TFMat = db_template('timefreqmat');
-%                 timestring2 = sprintf('(ws:%d%s,tr:%.1f%s)',round(CorrWindowSize*1000),'ms',CORRTResolu*1000,'ms');     
-%                 TFMat.Time          = (OPTIONS.CORRrange(1)+HalfCorrWindowSize):CORRTResolu:(OPTIONS.CORRrange(end)-HalfCorrWindowSize); 
-            end
-            TFMat.Time = DelayList;
-            if strcmp(OPTIONS.measure,'cfc') || strcmp(OPTIONS.measure,'coh')
-                TFMat.Method        = 'cohere';
-%                 TFMat.Freqs         = 1:nDelay;
-                if BeamformerType == 1                
-                    TFMat.Comment   = [result_comment 'DICS: cohere weight ' RowName{k} '|' timestring  'ms(' num2str(BandBounds(1))  '-' num2str(BandBounds(2)) 'Hz)' ];
-                else   
-                    TFMat.Comment   = [result_comment 'SILSC: cohere weight ' RowName{k} '|' timestring  'ms(' num2str(BandBounds(1))  '-' num2str(BandBounds(2)) 'Hz)' ];
-                end
-            else
-                TFMat.Method        = 'corr';
-%                 TFMat.Freqs         = DelayList;
-                if OPTIONS.BeamformerType == 1
-
-                    TFMat.Comment   = [result_comment 'DICS: corr weight2 ' RowName{k}  '|' timestring  'ms' ];
+%                 else % Interpolate the correlation maps to have the same temporal resolution as the data
+%                     bst_progress('start', ['Applying process: ' OPTIONS.method ], 'Interpolating correlation dynamics...', 0, nCORR+1);
+%                     bst_progress('inc',1);
+%                     % Create a new data file structure
+%                     bst_progress('start', ['Applying process: ' OPTIONS.method ], 'Saving weights...', 0, 2);
+% 
+%                     TFMat = db_template('timefreqmat');
+%     %                 timestring2 = sprintf('(ws:%d%s,tr:%.1f%s)',round(CorrWindowSize*1000),'ms',CORRTResolu*1000,'ms');     
+%     %                 TFMat.Time          = (OPTIONS.CORRrange(1)+HalfCorrWindowSize):CORRTResolu:(OPTIONS.CORRrange(end)-HalfCorrWindowSize); 
+%                 end
+                TFMat.Time = DelayList;
+                if strcmp(OPTIONS.measure,'cfc') || strcmp(OPTIONS.measure,'coh')               
+    %               TFMat.Freqs         = 1:nDelay                              
+                    TFMat.Comment   = [result_comment OPTIONS.method ':' cwcomment ' (' timestring  'ms,' num2str(BandBounds(1))  '-' num2str(BandBounds(2)) 'Hz)' ];                                 
                 else
-
-                    TFMat.Comment   = [result_comment 'SILSC: corr weight2 ' RowName{k} '|' timestring  'ms' ];
+                    TFMat.Comment   = [result_comment OPTIONS.method ':' cwcomment ' (' timestring  'ms)' ];
                 end
-            end
-            TFMat.TF = SingleCorrWeight;
-            TFMat.DataFile      = [];
-            TFMat.DataType      = 'results';
-            TFMat.Measure       = 'other';
-            TFMat.RefRowNames   = RowName(k);
-            TFMat.RowNames      = 1:nSources;
-            % Leave it empty if using ImagingKernel
+                TFMat.TF = SingleCorrWeight;
+                TFMat.DataFile      = [];
+                TFMat.Method        = 'corr';
+                TFMat.DataType      = 'results';
+                TFMat.Measure       = 'other';
+                TFMat.RefRowNames   = RowName;
+                TFMat.RowNames      = 1:nSources;
+                          % Leave it empty if using ImagingKernel
 
-            TFMat.nAvg          = length(InputsData);
-            if strcmp(sHeadModel.HeadModelType,'volume')     
-                TFMat.GridLoc       = sHeadModel.GridLoc;
-            else
-                TFMat.SurfaceFile   = sHeadModel.SurfaceFile;
-            end
-            % === NOT SHARED ===
-            % Get the output study (pick the one from the first file)
-            nOutputFiles = length(OutputFiles);
-            % Get the output study (pick the one from the first file)
-            [StudyContent,iStudy]=bst_get('StudyWithCondition',fileparts(sInputsData(1).FileName));
-            % Create a default output filename 
-            OutputFiles{nOutputFiles+k} = bst_process('GetNewFilename', fileparts(InputsData(1).FileName), 'timefreq_connect1_SISSCweight');
+                TFMat.nAvg          = length(InputsData);
 
-            % Save on disk
-            bst_save(OutputFiles{nOutputFiles+k}, TFMat,'v6');
-            % Register in database
-            db_add_data(iStudy, OutputFiles{nOutputFiles+k}, TFMat);
-            bst_progress('inc',1);
-            clear TFMat
+                if strcmp(sHeadModel.HeadModelType,'volume')     
+                    TFMat.GridLoc       = sHeadModel.GridLoc;
+                else
+                    TFMat.SurfaceFile   = sHeadModel.SurfaceFile;
+                end
+                % === NOT SHARED ===
+                
+                % Get the output study (pick the one from the first file)
+                [StudyContent,iStudy]=bst_get('StudyWithCondition',fileparts(InputsData(1).FileName));
+
+                % Create a default output filename 
+                OutputFiles{nOutputFiles+k} = bst_process('GetNewFilename', fileparts(InputsData(1).FileName), 'timefreq_connect1_BeamWeight');
+
+                % Save on disk
+                bst_save(OutputFiles{nOutputFiles+k}, TFMat,'v6');
+                % Register in database
+                db_add_data(iStudy, OutputFiles{nOutputFiles+k}, TFMat);
+                bst_progress('inc',1);
+                clear TFMat
+            end
         end
     end
     bst_progress('stop');
