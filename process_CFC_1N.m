@@ -271,6 +271,9 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
         case 2, OPTIONS.TFmethod = 'wavelet';
         case 3, OPTIONS.TFmethod = 'stft';
     end
+    if ~isfield(sProcess.options,'outtype')
+        sProcess.options.outtype.Value = 2;
+    end
     switch (sProcess.options.outtype.Value)
         case 1, isConnectNN = 1;
         case 2, isConnectNN = 0;
@@ -334,8 +337,12 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
                 [OPTIONS.TargetFunc] = deal('all');
             end
         end
+       
+        LoadOptions.TargetFunc = OPTIONS.TargetFunc;
+        
     else
         OPTIONS.isScout = 0;
+        
     end
     
         
@@ -346,7 +353,7 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
     else
         startValue = 0;
     end
-    % Options for LoadInputFile()
+     % Options for LoadInputFile()
     if strcmpi(sInputA(1).FileType, 'results')
         LoadOptions.LoadFull = 0;  % Load kernel-based results as kernel+data
     else
@@ -354,7 +361,6 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
     end
     LoadOptions.IgnoreBad   = 1;  % From raw files: ignore the bad segments
     LoadOptions.ProcessName = func2str(sProcess.Function);
-    LoadOptions.TargetFunc = OPTIONS.TargetFunc;
     
    
     maxlag = 0;
@@ -592,7 +598,7 @@ function OutputFiles = Run(sProcess, sInputA) %#ok<DEFNU>
         % Output study, in case of average
         [tmp, iOutputStudy] = bst_process('GetOutputStudy', sProcess, sInputA);
         % Save file
-        OutputFiles{end+1} = SaveFile(DirectPAC_avg, iOutputStudy, [], sInputRef, sInput, Comment, nAvg, OPTIONS, [])
+        OutputFiles{end+1} = SaveFile(DirectPAC_avg, iOutputStudy, [], sInputRef, sInput, Comment, nAvg, OPTIONS, []);
 %         OutputFiles{1} = SaveFile(DirectPAC_avg, LowFreqs, HighFreqs, nAvg, iOutputStudy, [], sInput, Comment, OPTIONS);
     end
 end
@@ -867,7 +873,7 @@ function [c, lags] = lagged_corr(X,Y,maxlag)
     end
 
     if maxlag == 0
-        c = bst_corrn(X, Y, 1); 
+        c = corrn(X, Y); 
         if isSVD
             [U,S,V] = svd(real(c));
             c = S(1,1);
@@ -881,7 +887,7 @@ function [c, lags] = lagged_corr(X,Y,maxlag)
     ms = -maxlag:10:maxlag;
     for t=1:length(ms)
         m=ms(t);
-        z = bst_corrn(X(:,m+maxlag+(1:K)),Y(:,maxlag+(1:K)-1),1);
+        z = corrn(X(:,m+maxlag+(1:K)),Y(:,maxlag+(1:K)-1),1);
         if isSVD
             [U,S,V] = svd(real(z));
             z = S(1,1);
@@ -891,4 +897,71 @@ function [c, lags] = lagged_corr(X,Y,maxlag)
     [val,ind]=max(c);
     c=val;
     lags = ms(ind);
+end
+function [R] = corrn(X, Y)
+% BST_CORRN: Calculates the same correlation coefficients as Matlab function corrcoef (+/- rounding errors), but in a vectorized way
+%            Equivalent to bst_correlation with nDelay=1 and maxDelay=0 
+%
+% INPUTS:
+%    - X: [Nx,Nt], Nx signals varying in time
+%    - Y: [Ny,Nt], Ny signals varying in time
+%    - RemoveMean: If 1, removes the average of the signal before calculating the correlation
+%                  If 0, computes a scalar product instead of a correlation
+%
+% NOTE: The rounding errors
+%    Corrcoef computes the correlation coefficients based on the variance values computed with cov(),
+%    instead of a direct sum of the squared values (sum(Xc.^2,2)).
+%    Hence it uses a corrected algorithm for the computation of the variance, that is not sensible to
+%    the rounding errors for large number of time samples. We do not divide the values by the number 
+%    of samples here, so if the two signals are the same range of dynamics, those rounding errors
+%    should not be a problem, even for a very large number of time samples.
+
+% @=============================================================================
+% This software is part of the Brainstorm software:
+% http://neuroimage.usc.edu/brainstorm
+% 
+% Copyright (c)2000-2015 University of Southern California & McGill University
+% This software is distributed under the terms of the GNU General Public License
+% as published by the Free Software Foundation. Further details on the GPL
+% license can be found at http://www.gnu.org/copyleft/gpl.html.
+% 
+% FOR RESEARCH PURPOSES ONLY. THE SOFTWARE IS PROVIDED "AS IS," AND THE
+% UNIVERSITY OF SOUTHERN CALIFORNIA AND ITS COLLABORATORS DO NOT MAKE ANY
+% WARRANTY, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF
+% MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE, NOR DO THEY ASSUME ANY
+% LIABILITY OR RESPONSIBILITY FOR THE USE OF THIS SOFTWARE.
+%
+% For more information type "brainstorm license" at command prompt.
+% =============================================================================@
+%
+% Authors: Francois Tadel, 2012-2014
+
+mX = mean(X,2);
+mY = mean(Y,2);
+
+% Normalize the rows of all the signals 
+% (to avoid rounding errors in case of values with radically different values)
+
+if mX~=0
+    Xc = bst_bsxfun(@minus, X, mX);
+    Xc = normr(Xc);
+else
+    Xc = X;
+end
+if mY~=0
+    Yc = bst_bsxfun(@minus, Y, mY);
+    Yc = normr(Yc);
+else
+    Yc = Y;
+end
+
+
+% Correlation coefficients
+R = Xc * Yc';
+end
+
+function x = normr(x)
+    n = sqrt(sum(x.^2,2));
+    x(n~=0,:) = bst_bsxfun(@rdivide, x(n~=0,:), n(n~=0));
+    x(n==0,:) = 1 ./ sqrt(size(x,2));
 end
