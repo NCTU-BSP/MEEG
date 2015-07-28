@@ -40,7 +40,7 @@ end
 %% ===== GET DESCRIPTION =====
 function sProcess = GetDescription() %#ok<DEFNU>
     % Description the process
-    sProcess.Comment     = 'Beamformer: Maximum Contrast';
+    sProcess.Comment     = 'Beamformer: Maximum Contrast (test)';
     sProcess.FileTag     = '';
     sProcess.Category    = 'Custom';
     sProcess.SubGroup    = 'Sources';
@@ -67,6 +67,9 @@ function sProcess = GetDescription() %#ok<DEFNU>
     sProcess.options.minvar_range.Comment = 'Time range for spatial filter estimation: ';
     sProcess.options.minvar_range.Type    = 'timewindow';
     sProcess.options.minvar_range.Value   = [];
+    sProcess.options.ori_range.Comment = 'Time range for dipole orientation estimation: ';
+    sProcess.options.ori_range.Type    = 'timewindow';
+    sProcess.options.ori_range.Value   = [];
     % === F-MAP TIME RANGE
     sProcess.options.fmaps_range.Comment = 'Time range of active state: ';
     sProcess.options.fmaps_range.Type    = 'poststim';
@@ -132,6 +135,7 @@ function OutputFiles = Run(sProcess, sInputs) %#ok<DEFNU>
     isSaveFilter = sProcess.options.savefilter.Value;
     %SFcriteriaType = sProcess.options.sfcriteria.Value;
     MinVarRange = sProcess.options.minvar_range.Value{1};
+    OriRange = sProcess.options.ori_range.Value{1};
     isScout = sProcess.options.usescouts.Value;
     
     result_comment = sProcess.options.result_comm.Value;
@@ -164,8 +168,8 @@ function OutputFiles = Run(sProcess, sInputs) %#ok<DEFNU>
         bst_report('Warning', sProcess, sInputs, 'The F statistic window size is too large and reset to the same as the time range of active state.');
         FmapSize = FmapRange(2) - FmapRange(1);
     end
-    
-    ActiveTime = MinVarRange;
+    MinVarTime = MinVarRange;
+    ActiveTime = OriRange;
     %MinVarPoints = panel_time('GetTimeIndices', Time, MinVarRange);
 
     if FmapTResolu == 0
@@ -237,7 +241,8 @@ function OutputFiles = Run(sProcess, sInputs) %#ok<DEFNU>
     
     % ===== LOAD THE DATA =====
     % Find the indices for covariance calculation
-    iActiveTime = panel_time('GetTimeIndices', Time, MinVarRange);
+    iMinVarTime = panel_time('GetTimeIndices', Time, MinVarRange);
+    iActiveTime = panel_time('GetTimeIndices', Time, OriRange);
     if BaselineTime(1)==BaselineTime(2)
         iBaselineTime = [];
     else
@@ -246,7 +251,8 @@ function OutputFiles = Run(sProcess, sInputs) %#ok<DEFNU>
     % Initialize the covariance matrices
     ActiveCov = zeros(nChannels, nChannels);
     nTotalActive = zeros(nChannels, nChannels);
-
+    MinVarCov = zeros(nChannels, nChannels);
+    nTotalMinVar = zeros(nChannels, nChannels);
     
     nFmapPoints = length(panel_time('GetTimeIndices', Time, FmapTimeList(1,:)));
     iFmapTime = zeros(nFmaps, nFmapPoints);
@@ -307,6 +313,19 @@ function OutputFiles = Run(sProcess, sInputs) %#ok<DEFNU>
         ActiveCov(iGoodChan,iGoodChan) = ActiveCov(iGoodChan,iGoodChan) + fileActiveCov;       
         nTotalActive(iGoodChan,iGoodChan) = nTotalActive(iGoodChan,iGoodChan) + length(iActiveTime);
 
+        if ~isempty(iBaselineTime)           
+            % Remove average
+            DataMinVar = bst_bsxfun(@minus, DataMat.F(iGoodChan,iMinVarTime), FavgActive);
+        else
+            DataMinVar = DataMat.F(iGoodChan,iMinVarTime);
+        end
+
+        % Compute covariance for this file
+        fileMinVarCov = DataMat.nAvg .* (DataMinVar * DataMinVar');        
+        % Add file covariance to accumulator
+        MinVarCov(iGoodChan,iGoodChan) = MinVarCov(iGoodChan,iGoodChan) + fileMinVarCov;       
+        nTotalMinVar(iGoodChan,iGoodChan) = nTotalMinVar(iGoodChan,iGoodChan) + length(iMinVarTime);
+        
         
         for j = 1:nFmaps
             % Average baseline values
@@ -344,12 +363,14 @@ function OutputFiles = Run(sProcess, sInputs) %#ok<DEFNU>
     % Remove zeros from N matrix
     if sProcess.options.oriconstraint.Value == 1,
         nTotalActive(nTotalActive <= 1) = 2;
+        nTotalMinVar(nTotalMinVar <= 1) = 2;
     end
     nTotalFmapActive(nTotalFmapActive <= 1) = 2;
     bst_progress('inc',1);
     % Divide final matrix by number of samples
     if sProcess.options.oriconstraint.Value == 1,
         ActiveCov = ActiveCov ./ (nTotalActive - 1);
+        MinVarCov = MinVarCov ./ (nTotalMinVar - 1);
     end
     FmapActiveCov = FmapActiveCov ./ (nTotalFmapActive - 1);
     bst_progress('inc',1);
@@ -359,7 +380,6 @@ function OutputFiles = Run(sProcess, sInputs) %#ok<DEFNU>
     nUsedChannels = length(iChannels); 
     
     % Extract the covariance matrix of the used channels
-    MinVarCov = ActiveCov; 
     ActiveCov = ActiveCov(iChannels,iChannels);
     NoiseCovMat = load(file_fullpath(sChannelStudy.NoiseCov.FileName));
     if isempty(NoiseCovMat)
@@ -448,7 +468,7 @@ function OutputFiles = Run(sProcess, sInputs) %#ok<DEFNU>
                 % Compute the spatial filter
                 SpatialFilter = (A * DipoleOri) / (DipoleOri' * B * DipoleOri);           
 
-                varControl = sqrt(SpatialFilter'* NoiseCov * SpatialFilter);
+                varControl = SpatialFilter'* NoiseCov * SpatialFilter;
                 bst_progress('inc',1);
                 for j = 1:nFmaps
                     % Compute the contrast of source power during active state and control state
