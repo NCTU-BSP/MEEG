@@ -31,7 +31,7 @@ function varargout = process_beamformer_mcb( varargin )
 %
 % For more information type "brainstorm license" at command prompt.
 % =============================================================================@
-% Authors: Hui-Ling Chan, Francois Tadel, Sylvain Baillet, 2014
+% Authors: Hui-Ling Chan, Francois Tadel, Sylvain Baillet, 2014-2015
 
 macro_methodcall;
 end
@@ -40,7 +40,7 @@ end
 %% ===== GET DESCRIPTION =====
 function sProcess = GetDescription() %#ok<DEFNU>
     % Description the process
-    sProcess.Comment     = 'Beamformer: Maximum Contrast (test)';
+    sProcess.Comment     = 'Beamformer: Maximum Contrast';
     sProcess.FileTag     = '';
     sProcess.Category    = 'Custom';
     sProcess.SubGroup    = 'Sources';
